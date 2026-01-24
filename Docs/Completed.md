@@ -102,3 +102,137 @@ See `TODO.md` for forward-looking work items.
 **Key files:**
 - `Docs/Specification.md`
 - `Docs/Implementation-Plan.md`
+
+---
+
+## Phase 0: Project Setup (2025-01-24)
+
+**Why:** Establish runnable Python project with CLI scaffolding.
+
+**What we did:**
+- Created `pyproject.toml` with dependencies:
+  - `plexapi` - Plex Media Server integration
+  - `httpx` - Async HTTP client for TMDB/TVDB
+  - `click` - CLI framework
+  - `rich` - Pretty terminal output
+  - `pydantic` - Data validation/models
+  - `python-dotenv` - Environment variables
+  - Dev: `pytest`, `ruff`, `mypy`
+- Created package structure: `src/complexionist/` with subpackages
+  - `plex/`, `tmdb/`, `tvdb/`, `gaps/`, `output/`
+- Created CLI entry point with commands:
+  - `movies` - Find missing movies from collections
+  - `episodes` - Find missing episodes from TV shows
+  - `scan` - Run both scans
+  - `config` - Manage configuration
+  - `cache` - Manage API cache
+- Created `.env.example` with credential templates
+- Set up Ruff linting (all checks passing)
+- Created initial test suite (6 tests)
+
+**Key files:**
+- `pyproject.toml`
+- `src/complexionist/cli.py`
+- `.env.example`
+- `tests/test_cli.py`
+
+---
+
+## Phase 1: Plex Integration (2025-01-24)
+
+**Why:** Connect to Plex Media Server and extract library data with external IDs.
+
+**What we did:**
+- Created `PlexClient` using python-plexapi:
+  - Token-based authentication (env var or parameter)
+  - URL normalization (adds http:// if missing)
+  - Connection testing
+- Library management:
+  - List all libraries with type detection (movie/show)
+  - Filter movie libraries vs TV libraries
+- Movie extraction:
+  - Get all movies from a library
+  - Extract TMDB ID, IMDB ID from Plex GUIDs
+  - `has_tmdb_id` property for filtering
+- TV show extraction:
+  - Get all shows from a library
+  - Extract TVDB ID, TMDB ID from Plex GUIDs
+  - `has_tvdb_id` property for filtering
+- Episode extraction:
+  - Get all episodes for a show
+  - Extract season/episode numbers
+  - Extract file paths (for multi-episode detection later)
+  - `episode_code` property (e.g., "S01E05")
+  - `PlexShowWithEpisodes` model with season grouping
+
+**Data models (Pydantic):**
+- `PlexLibrary`: key, title, type, is_movie_library, is_tv_library
+- `PlexMovie`: rating_key, title, year, tmdb_id, imdb_id
+- `PlexShow`: rating_key, title, year, tvdb_id, tmdb_id
+- `PlexEpisode`: season_number, episode_number, file_path
+- `PlexShowWithEpisodes`: show with episodes, seasons dict
+
+**Error handling:**
+- `PlexAuthError` - Missing URL/token or invalid token
+- `PlexConnectionError` - Connection failures
+- `PlexNotFoundError` - Library/item not found
+
+**Tested against real Plex server "Holodeck":**
+- Movies: 5,432 (99.2% with TMDB ID)
+- TV Shows: 1,290 (100% with TVDB ID)
+
+**Key files:**
+- `src/complexionist/plex/client.py`
+- `src/complexionist/plex/models.py`
+- `tests/test_plex.py` (17 tests)
+
+---
+
+## Phase 2: TMDB Integration (2025-01-24)
+
+**Why:** Query TMDB for movie collection data to identify gaps.
+
+**What we did:**
+- Created `TMDBClient` with httpx:
+  - API key authentication (env var or parameter)
+  - Proper error handling with exception chaining
+- Movie details endpoint (`GET /movie/{id}`):
+  - Returns `TMDBMovieDetails` with `belongs_to_collection`
+  - `collection_id` and `collection_name` properties
+- Collection endpoint (`GET /collection/{id}`):
+  - Returns `TMDBCollection` with all movies
+  - `released_movies` property filters out future releases
+  - `movie_count` property
+- Collection search endpoint for name-based lookup
+- Connection testing
+
+**Data models (Pydantic):**
+- `TMDBMovie`: id, title, release_date, is_released, year
+- `TMDBMovieDetails`: + belongs_to_collection
+- `TMDBCollection`: id, name, parts[], movie_count, released_movies
+- `TMDBCollectionInfo`: basic collection reference
+
+**Error handling:**
+- `TMDBAuthError` - Invalid API key (401)
+- `TMDBNotFoundError` - Resource not found (404)
+- `TMDBRateLimitError` - Rate limited (429), includes retry_after
+
+**Utilities:**
+- `retry_with_backoff` decorator for rate limiting
+
+**Key files:**
+- `src/complexionist/tmdb/client.py`
+- `src/complexionist/tmdb/models.py`
+- `src/complexionist/utils.py`
+- `tests/test_tmdb.py` (14 tests)
+
+---
+
+## Current Status
+
+**Tests:** 37 total, all passing
+- CLI: 6 tests
+- Plex: 17 tests
+- TMDB: 14 tests
+
+**Next:** Phase 3 (Movie Gap Detection) - Wire Plex + TMDB together

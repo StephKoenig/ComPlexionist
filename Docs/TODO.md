@@ -1,74 +1,77 @@
 # ComPlexionist - Development TODO
 
-## Current Focus: Phase 0 - Project Setup
+## Current Focus: Phase 3 - Movie Gap Detection
 
-- [ ] Initialize Python project with `pyproject.toml`
-- [ ] Set up virtual environment
-- [ ] Install core dependencies (plexapi, httpx, click/typer, etc.)
-- [ ] Create package structure (`src/complexionist/`)
-- [ ] Create `.env.example` with required credentials
-- [ ] Set up Ruff for linting/formatting
-- [ ] Create basic CLI entry point (`complexionist --help`)
+- [ ] Create `MovieGapFinder` class in `gaps/movies.py`
+- [ ] Build owned movie set from Plex (by TMDB ID)
+- [ ] Query TMDB for collection membership for each movie
+- [ ] Deduplicate collections (many movies share same collection)
+- [ ] Fetch full collections from TMDB
+- [ ] Filter out future releases (release_date > today)
+- [ ] Compare and identify missing movies
+- [ ] Generate missing movies report (grouped by collection)
+- [ ] Wire into CLI `movies` command
+- [ ] Add progress indicators
 
 ---
 
-## Phase 1: Plex Integration
+## Completed Phases
 
-- [ ] Implement Plex authentication (token-based)
-- [ ] List available libraries
-- [ ] Extract movies with TMDB IDs
-- [ ] Extract TV shows with TVDB GUIDs
-- [ ] Extract episodes with season/episode numbers
-- [ ] Handle missing external IDs gracefully
+### Phase 0: Project Setup ✓
+- [x] Initialize Python project with `pyproject.toml`
+- [x] Set up virtual environment
+- [x] Install core dependencies
+- [x] Create package structure (`src/complexionist/`)
+- [x] Create `.env.example`
+- [x] Set up Ruff linting
+- [x] Create CLI entry point
 
-## Phase 2: TMDB Integration
+### Phase 1: Plex Integration ✓
+- [x] Implement Plex authentication (token-based)
+- [x] List available libraries
+- [x] Extract movies with TMDB IDs
+- [x] Extract TV shows with TVDB GUIDs
+- [x] Extract episodes with season/episode numbers
+- [x] Handle missing external IDs gracefully
 
-- [ ] Create TMDB API client
-- [ ] Implement movie details endpoint (get collection info)
-- [ ] Implement collection endpoint (get all movies)
-- [ ] Handle rate limiting with backoff
+### Phase 2: TMDB Integration ✓
+- [x] Create TMDB API client
+- [x] Implement movie details endpoint (get collection info)
+- [x] Implement collection endpoint (get all movies)
+- [x] Handle rate limiting with backoff utility
 
-## Phase 3: Movie Gap Detection
+---
 
-- [ ] Build owned movie set from Plex
-- [ ] Query TMDB for collection membership
-- [ ] Fetch full collections
-- [ ] Filter future releases
-- [ ] Compare and generate missing movies report
+## Upcoming Phases
 
-## Phase 4: TVDB Integration
-
+### Phase 4: TVDB Integration
 - [ ] Create TVDB v4 API client
-- [ ] Implement login/token flow
+- [ ] Implement login/token flow (Bearer token)
 - [ ] Implement series episodes endpoint (paginated)
 - [ ] Handle rate limiting
 
-## Phase 5: Episode Gap Detection
-
+### Phase 5: Episode Gap Detection
 - [ ] Build owned episode map from Plex
 - [ ] Parse multi-episode filenames (S02E01-02)
 - [ ] Query TVDB for complete episode lists
 - [ ] Filter: future, specials, very recent
 - [ ] Compare and generate missing episodes report
 
-## Phase 6: CLI Polish
-
-- [ ] Unified `scan` command
+### Phase 6: CLI Polish (v1.0)
+- [ ] Wire gap detection into CLI commands
 - [ ] JSON output format
 - [ ] CSV output format
 - [ ] Progress indicators with Rich
 - [ ] Configuration file support
 - [ ] Comprehensive error handling
 
-## Phase 7: Caching (v1.1)
-
+### Phase 7: Caching (v1.1)
 - [ ] Design cache storage (SQLite or JSON)
 - [ ] Implement TTL-based caching
 - [ ] `--no-cache` flag
 - [ ] `cache --clear` command
 
-## Phase 8: GUI (v2.0)
-
+### Phase 8: GUI (v2.0)
 - [ ] Evaluate GUI options (PyQt, Textual, Web)
 - [ ] Design UI/UX
 - [ ] Implement GUI
@@ -82,5 +85,6 @@
 - [x] Reference-Analysis.md
 - [x] Specification.md
 - [x] Implementation-Plan.md
+- [x] Completed.md (updated)
 - [ ] User guide
 - [ ] API key setup instructions
