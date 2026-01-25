@@ -3,7 +3,7 @@
 [![CI](https://github.com/StephKoenig/ComPlexionist/actions/workflows/ci.yml/badge.svg)](https://github.com/StephKoenig/ComPlexionist/actions/workflows/ci.yml)
 [![Build](https://github.com/StephKoenig/ComPlexionist/actions/workflows/build.yml/badge.svg)](https://github.com/StephKoenig/ComPlexionist/actions/workflows/build.yml)
 
-A tool to identify missing content in your Plex Media Server libraries.
+Completing your Plex Media Server libraries.
 
 ## Features
 
