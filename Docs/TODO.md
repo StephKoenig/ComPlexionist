@@ -1,17 +1,11 @@
 # ComPlexionist - Development TODO
 
-## Current Focus: Phase 3 - Movie Gap Detection
+## Current Focus: Phase 4 - TVDB Integration
 
-- [ ] Create `MovieGapFinder` class in `gaps/movies.py`
-- [ ] Build owned movie set from Plex (by TMDB ID)
-- [ ] Query TMDB for collection membership for each movie
-- [ ] Deduplicate collections (many movies share same collection)
-- [ ] Fetch full collections from TMDB
-- [ ] Filter out future releases (release_date > today)
-- [ ] Compare and identify missing movies
-- [ ] Generate missing movies report (grouped by collection)
-- [ ] Wire into CLI `movies` command
-- [ ] Add progress indicators
+- [ ] Create TVDB v4 API client
+- [ ] Implement login/token flow (Bearer token)
+- [ ] Implement series episodes endpoint (paginated)
+- [ ] Handle rate limiting
 
 ---
 
@@ -40,15 +34,21 @@
 - [x] Implement collection endpoint (get all movies)
 - [x] Handle rate limiting with backoff utility
 
+### Phase 3: Movie Gap Detection ✓
+- [x] Create `MovieGapFinder` class in `gaps/movies.py`
+- [x] Build owned movie set from Plex (by TMDB ID)
+- [x] Query TMDB for collection membership for each movie
+- [x] Deduplicate collections (many movies share same collection)
+- [x] Fetch full collections from TMDB
+- [x] Filter out future releases (release_date > today)
+- [x] Compare and identify missing movies
+- [x] Generate missing movies report (grouped by collection)
+- [x] Wire into CLI `movies` command
+- [x] Add progress indicators
+
 ---
 
 ## Upcoming Phases
-
-### Phase 4: TVDB Integration
-- [ ] Create TVDB v4 API client
-- [ ] Implement login/token flow (Bearer token)
-- [ ] Implement series episodes endpoint (paginated)
-- [ ] Handle rate limiting
 
 ### Phase 5: Episode Gap Detection
 - [ ] Build owned episode map from Plex
@@ -58,10 +58,11 @@
 - [ ] Compare and generate missing episodes report
 
 ### Phase 6: CLI Polish (v1.0)
-- [ ] Wire gap detection into CLI commands
-- [ ] JSON output format
-- [ ] CSV output format
-- [ ] Progress indicators with Rich
+- [x] Wire movie gap detection into CLI `movies` command
+- [x] JSON output format (movies)
+- [x] CSV output format (movies)
+- [x] Progress indicators with Rich
+- [ ] Wire episode gap detection into CLI `episodes` command
 - [ ] Configuration file support
 - [ ] Comprehensive error handling
 

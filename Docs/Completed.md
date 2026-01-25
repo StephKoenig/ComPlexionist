@@ -228,11 +228,56 @@ See `TODO.md` for forward-looking work items.
 
 ---
 
+## Phase 3: Movie Gap Detection (2025-01-25)
+
+**Why:** Identify missing movies from collections by comparing Plex library against TMDB data.
+
+**What we did:**
+- Created `MovieGapFinder` class that orchestrates gap detection:
+  - Gets all movies from Plex with TMDB IDs
+  - Queries TMDB for collection membership for each movie
+  - Deduplicates collections (many movies share same collection)
+  - Fetches full collection data from TMDB
+  - Filters out future releases by default (`--include-future` flag)
+  - Compares owned movies against collection movies to find gaps
+  - Supports progress callback for Rich progress indicators
+
+- Created gap report models:
+  - `MissingMovie`: TMDB ID, title, release date, year, overview
+  - `CollectionGap`: Collection info with owned/missing counts and movies
+  - `MovieGapReport`: Full scan report with summary statistics
+
+- Wired into CLI `movies` command:
+  - Rich progress indicators during scanning
+  - Text output: Formatted table grouped by collection
+  - JSON output: Structured data for machine consumption
+  - CSV output: Spreadsheet-compatible format
+  - Proper error handling for Plex/TMDB connection issues
+
+**Data flow:**
+1. Connect to Plex → Get all movies with TMDB IDs
+2. For each movie → Query TMDB for collection membership
+3. Deduplicate collections
+4. For each collection → Fetch full movie list from TMDB
+5. Filter future releases (unless `--include-future`)
+6. Compare owned vs collection → Identify missing
+7. Generate report sorted by missing count
+
+**Key files:**
+- `src/complexionist/gaps/movies.py` - MovieGapFinder class
+- `src/complexionist/gaps/models.py` - Gap report models
+- `src/complexionist/gaps/__init__.py` - Module exports
+- `src/complexionist/cli.py` - CLI command with Rich output
+- `tests/test_gaps.py` (15 tests)
+
+---
+
 ## Current Status
 
-**Tests:** 37 total, all passing
+**Tests:** 52 total, all passing
 - CLI: 6 tests
 - Plex: 17 tests
 - TMDB: 14 tests
+- Gaps: 15 tests
 
-**Next:** Phase 3 (Movie Gap Detection) - Wire Plex + TMDB together
+**Next:** Phase 4 (TVDB Integration) - Create TVDB v4 API client for episode data

@@ -1,9 +1,30 @@
 """Command-line interface for ComPlexionist."""
 
+from __future__ import annotations
+
+import json
+import sys
+from typing import TYPE_CHECKING
+
 import click
+from dotenv import load_dotenv
 from rich.console import Console
+from rich.progress import (
+    BarColumn,
+    Progress,
+    SpinnerColumn,
+    TaskProgressColumn,
+    TextColumn,
+)
+from rich.table import Table
 
 from complexionist import __version__
+
+if TYPE_CHECKING:
+    from complexionist.gaps import MovieGapReport
+
+# Load environment variables from .env file
+load_dotenv()
 
 console = Console()
 
@@ -38,13 +59,163 @@ def movies(
     format: str,
 ) -> None:
     """Find missing movies from collections in your Plex library."""
+    from complexionist.gaps import MovieGapFinder
+    from complexionist.plex import PlexClient, PlexError
+    from complexionist.tmdb import TMDBClient, TMDBError
+
     verbose = ctx.obj.get("verbose", False)
-    console.print("[yellow]Movie collection gaps feature coming soon![/yellow]")
-    if verbose:
-        console.print(f"  Library: {library or 'auto-detect'}")
-        console.print(f"  Cache: {'disabled' if no_cache else 'enabled'}")
-        console.print(f"  Include future: {include_future}")
-        console.print(f"  Format: {format}")
+
+    # Progress tracking state
+    progress_task = None
+    progress_ctx = None
+
+    def progress_callback(stage: str, current: int, total: int) -> None:
+        nonlocal progress_task, progress_ctx
+        if progress_ctx is not None and progress_task is not None:
+            progress_ctx.update(progress_task, description=stage, completed=current, total=total)
+
+    try:
+        # Connect to Plex
+        with Progress(
+            SpinnerColumn(),
+            TextColumn("[progress.description]{task.description}"),
+            BarColumn(),
+            TaskProgressColumn(),
+            console=console,
+            transient=True,
+        ) as progress:
+            progress_ctx = progress
+            progress_task = progress.add_task("Connecting to Plex...", total=None)
+
+            try:
+                plex = PlexClient()
+                plex.connect()
+            except PlexError as e:
+                console.print(f"[red]Plex error:[/red] {e}")
+                sys.exit(1)
+
+            progress.update(progress_task, description=f"Connected to {plex.server_name}")
+
+            # Connect to TMDB
+            progress.update(progress_task, description="Connecting to TMDB...")
+            try:
+                tmdb = TMDBClient()
+                tmdb.test_connection()
+            except TMDBError as e:
+                console.print(f"[red]TMDB error:[/red] {e}")
+                sys.exit(1)
+
+            # Find gaps
+            finder = MovieGapFinder(
+                plex_client=plex,
+                tmdb_client=tmdb,
+                include_future=include_future,
+                progress_callback=progress_callback,
+            )
+
+            progress.update(progress_task, description="Scanning...", total=1, completed=0)
+            report = finder.find_gaps(library)
+
+        # Output results
+        if format == "json":
+            _output_movies_json(report)
+        elif format == "csv":
+            _output_movies_csv(report)
+        else:
+            _output_movies_text(report, verbose)
+
+    except KeyboardInterrupt:
+        console.print("\n[yellow]Scan cancelled.[/yellow]")
+        sys.exit(130)
+
+
+def _output_movies_text(report: MovieGapReport, verbose: bool) -> None:
+    """Output movie gap report as formatted text."""
+    console.print()
+    console.print(f"[bold blue]Movie Collection Gaps - {report.library_name}[/bold blue]")
+    console.print()
+
+    # Summary
+    console.print(f"[dim]Movies scanned:[/dim] {report.total_movies_scanned}")
+    console.print(f"[dim]With TMDB ID:[/dim] {report.movies_with_tmdb_id}")
+    console.print(f"[dim]In collections:[/dim] {report.movies_in_collections}")
+    console.print(f"[dim]Unique collections:[/dim] {report.unique_collections}")
+    console.print()
+
+    if not report.collections_with_gaps:
+        console.print("[green]All collections are complete![/green]")
+        return
+
+    console.print(f"[yellow]Found {report.total_missing} missing movies in {len(report.collections_with_gaps)} collections[/yellow]")
+    console.print()
+
+    for gap in report.collections_with_gaps:
+        # Collection header
+        console.print(f"[bold]{gap.collection_name}[/bold] ({gap.owned_movies}/{gap.total_movies} - {gap.completion_percent:.0f}%)")
+
+        # Missing movies table
+        table = Table(show_header=True, header_style="dim", box=None, padding=(0, 2))
+        table.add_column("Title", style="white")
+        table.add_column("Year", style="dim", justify="right")
+
+        for movie in gap.missing_movies:
+            table.add_row(movie.title, str(movie.year) if movie.year else "TBA")
+
+        console.print(table)
+        console.print()
+
+
+def _output_movies_json(report: MovieGapReport) -> None:
+    """Output movie gap report as JSON."""
+    output = {
+        "library_name": report.library_name,
+        "total_movies_scanned": report.total_movies_scanned,
+        "movies_with_tmdb_id": report.movies_with_tmdb_id,
+        "movies_in_collections": report.movies_in_collections,
+        "unique_collections": report.unique_collections,
+        "total_missing": report.total_missing,
+        "collections": [
+            {
+                "id": gap.collection_id,
+                "name": gap.collection_name,
+                "total": gap.total_movies,
+                "owned": gap.owned_movies,
+                "missing": [
+                    {
+                        "tmdb_id": m.tmdb_id,
+                        "title": m.title,
+                        "year": m.year,
+                        "release_date": m.release_date.isoformat() if m.release_date else None,
+                    }
+                    for m in gap.missing_movies
+                ],
+            }
+            for gap in report.collections_with_gaps
+        ],
+    }
+    console.print_json(json.dumps(output))
+
+
+def _output_movies_csv(report: MovieGapReport) -> None:
+    """Output movie gap report as CSV."""
+    import csv
+    import io
+
+    output = io.StringIO()
+    writer = csv.writer(output)
+    writer.writerow(["Collection", "Movie Title", "Year", "TMDB ID", "Release Date"])
+
+    for gap in report.collections_with_gaps:
+        for movie in gap.missing_movies:
+            writer.writerow([
+                gap.collection_name,
+                movie.title,
+                movie.year or "",
+                movie.tmdb_id,
+                movie.release_date.isoformat() if movie.release_date else "",
+            ])
+
+    console.print(output.getvalue())
 
 
 @main.command()
