@@ -1,7 +1,7 @@
 # ComPlexionist v1.2 - UX Improvements
 
 **Release Date:** January 2026
-**Version:** 1.2.26
+**Version:** 1.2.28
 
 ---
 
