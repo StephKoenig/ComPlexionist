@@ -355,7 +355,7 @@ complexionist/
 
 ## Implementation Notes
 
-**Current implementation status (as of Phase 7):**
+**Current implementation status (as of Phase 7.5):**
 
 1. **Project Structure:**
    - Plex: `client.py` + `models.py` (consolidated)
@@ -365,6 +365,7 @@ complexionist/
    - Gaps: `movies.py` + `episodes.py` + `models.py`
    - Config: `config.py` for YAML configuration
    - Cache: `cache.py` for file-based JSON caching
+   - Version: `_version.py` for dynamic versioning
 
 2. **CLI Commands Implemented:**
    - `movies` - Find missing movies from collections
@@ -396,3 +397,9 @@ complexionist/
    - Human-readable cache structure with metadata
    - TMDB movies/collections: 7-day TTL
    - TVDB episodes: 24-hour TTL
+
+6. **Versioning & CI/CD:**
+   - Version format: `MAJOR.MINOR.{commit_count}` (e.g., 1.1.47)
+   - Base version in `_version.py`, commit count auto-calculated
+   - GitHub Actions CI: tests + lint on push/PR
+   - GitHub Actions Build: Windows executable on version tags

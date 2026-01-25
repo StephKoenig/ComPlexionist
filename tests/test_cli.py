@@ -1,7 +1,10 @@
 """Tests for the CLI module."""
 
+import re
+
 from click.testing import CliRunner
 
+from complexionist import __version__
 from complexionist.cli import main
 
 
@@ -18,7 +21,9 @@ def test_version() -> None:
     runner = CliRunner()
     result = runner.invoke(main, ["--version"])
     assert result.exit_code == 0
-    assert "0.1.0" in result.output
+    # Version format: MAJOR.MINOR.PATCH (e.g., 1.1.47)
+    assert re.search(r"\d+\.\d+\.\d+", result.output)
+    assert __version__ in result.output
 
 
 def test_movies_command_exists() -> None:

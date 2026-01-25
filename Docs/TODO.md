@@ -2,9 +2,7 @@
 
 ## Current Focus: Phase 8 - GUI (v2.0)
 
-- [ ] Evaluate GUI options (PyQt, Textual, Web)
-- [ ] Design UI/UX
-- [ ] Implement GUI
+Next up: Evaluate GUI options and design UI/UX
 
 ---
 
@@ -83,6 +81,12 @@
 - [x] `--no-cache` flag implementation
 - [x] `cache clear` command
 - [x] `cache stats` command
+
+### Phase 7.5: CI/CD & Versioning ✓
+- [x] Implement dynamic versioning (MAJOR.MINOR.{commit_count})
+- [x] Create GitHub Actions CI workflow (test + lint)
+- [x] Create GitHub Actions build workflow (Windows executable)
+- [x] Add CI badges to README
 
 ---
 
