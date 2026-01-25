@@ -19,6 +19,7 @@ from rich.progress import (
 from rich.table import Table
 
 from complexionist import __version__
+from complexionist.config import get_config
 
 if TYPE_CHECKING:
     from complexionist.gaps import EpisodeGapReport, MovieGapReport
@@ -32,17 +33,25 @@ console = Console()
 @click.group()
 @click.version_option(version=__version__, prog_name="complexionist")
 @click.option("-v", "--verbose", is_flag=True, help="Enable verbose output")
+@click.option("-q", "--quiet", is_flag=True, help="Minimal output (no progress, only results)")
 @click.pass_context
-def main(ctx: click.Context, verbose: bool) -> None:
+def main(ctx: click.Context, verbose: bool, quiet: bool) -> None:
     """ComPlexionist - Find missing movies and TV episodes in your Plex library."""
     ctx.ensure_object(dict)
     ctx.obj["verbose"] = verbose
+    ctx.obj["quiet"] = quiet
 
 
 @main.command()
 @click.option("--library", "-l", default=None, help="Movie library name (default: auto-detect)")
 @click.option("--no-cache", is_flag=True, help="Bypass cache and fetch fresh data")
 @click.option("--include-future", is_flag=True, help="Include unreleased movies")
+@click.option(
+    "--min-collection-size",
+    type=int,
+    default=None,
+    help="Minimum collection size to report (default: from config or 2)",
+)
 @click.option(
     "--format",
     "-f",
@@ -56,6 +65,7 @@ def movies(
     library: str | None,
     no_cache: bool,
     include_future: bool,
+    min_collection_size: int | None,
     format: str,
 ) -> None:
     """Find missing movies from collections in your Plex library."""
@@ -64,6 +74,12 @@ def movies(
     from complexionist.tmdb import TMDBClient, TMDBError
 
     verbose = ctx.obj.get("verbose", False)
+    quiet = ctx.obj.get("quiet", False)
+    cfg = get_config()
+
+    # Use CLI option or config default
+    if min_collection_size is None:
+        min_collection_size = cfg.options.min_collection_size
 
     # Progress tracking state
     progress_task = None
@@ -75,18 +91,8 @@ def movies(
             progress_ctx.update(progress_task, description=stage, completed=current, total=total)
 
     try:
-        # Connect to Plex
-        with Progress(
-            SpinnerColumn(),
-            TextColumn("[progress.description]{task.description}"),
-            BarColumn(),
-            TaskProgressColumn(),
-            console=console,
-            transient=True,
-        ) as progress:
-            progress_ctx = progress
-            progress_task = progress.add_task("Connecting to Plex...", total=None)
-
+        if quiet:
+            # Quiet mode: no progress indicators
             try:
                 plex = PlexClient()
                 plex.connect()
@@ -94,10 +100,6 @@ def movies(
                 console.print(f"[red]Plex error:[/red] {e}")
                 sys.exit(1)
 
-            progress.update(progress_task, description=f"Connected to {plex.server_name}")
-
-            # Connect to TMDB
-            progress.update(progress_task, description="Connecting to TMDB...")
             try:
                 tmdb = TMDBClient()
                 tmdb.test_connection()
@@ -105,16 +107,57 @@ def movies(
                 console.print(f"[red]TMDB error:[/red] {e}")
                 sys.exit(1)
 
-            # Find gaps
             finder = MovieGapFinder(
                 plex_client=plex,
                 tmdb_client=tmdb,
                 include_future=include_future,
-                progress_callback=progress_callback,
+                min_collection_size=min_collection_size,
+                excluded_collections=cfg.exclusions.collections,
             )
-
-            progress.update(progress_task, description="Scanning...", total=1, completed=0)
             report = finder.find_gaps(library)
+        else:
+            # Normal mode with progress
+            with Progress(
+                SpinnerColumn(),
+                TextColumn("[progress.description]{task.description}"),
+                BarColumn(),
+                TaskProgressColumn(),
+                console=console,
+                transient=True,
+            ) as progress:
+                progress_ctx = progress
+                progress_task = progress.add_task("Connecting to Plex...", total=None)
+
+                try:
+                    plex = PlexClient()
+                    plex.connect()
+                except PlexError as e:
+                    console.print(f"[red]Plex error:[/red] {e}")
+                    sys.exit(1)
+
+                progress.update(progress_task, description=f"Connected to {plex.server_name}")
+
+                # Connect to TMDB
+                progress.update(progress_task, description="Connecting to TMDB...")
+                try:
+                    tmdb = TMDBClient()
+                    tmdb.test_connection()
+                except TMDBError as e:
+                    console.print(f"[red]TMDB error:[/red] {e}")
+                    sys.exit(1)
+
+                # Find gaps
+                finder = MovieGapFinder(
+                    plex_client=plex,
+                    tmdb_client=tmdb,
+                    include_future=include_future,
+                    min_collection_size=min_collection_size,
+                    excluded_collections=cfg.exclusions.collections,
+                    progress_callback=progress_callback,
+                )
+
+                progress.update(progress_task, description="Scanning...", total=1, completed=0)
+                report = finder.find_gaps(library)
 
         # Output results
         if format == "json":
@@ -327,6 +370,17 @@ def _output_episodes_csv(report: EpisodeGapReport) -> None:
 @click.option("--include-future", is_flag=True, help="Include unaired episodes")
 @click.option("--include-specials", is_flag=True, help="Include Season 0 (specials)")
 @click.option(
+    "--recent-threshold",
+    type=int,
+    default=None,
+    help="Skip episodes aired within this many hours (default: from config or 24)",
+)
+@click.option(
+    "--exclude-show",
+    multiple=True,
+    help="Show title to exclude (can be used multiple times)",
+)
+@click.option(
     "--format",
     "-f",
     type=click.Choice(["text", "json", "csv"]),
@@ -340,6 +394,8 @@ def episodes(
     no_cache: bool,
     include_future: bool,
     include_specials: bool,
+    recent_threshold: int | None,
+    exclude_show: tuple[str, ...],
     format: str,
 ) -> None:
     """Find missing episodes from TV shows in your Plex library."""
@@ -348,6 +404,15 @@ def episodes(
     from complexionist.tvdb import TVDBClient, TVDBError
 
     verbose = ctx.obj.get("verbose", False)
+    quiet = ctx.obj.get("quiet", False)
+    cfg = get_config()
+
+    # Use CLI option or config default
+    if recent_threshold is None:
+        recent_threshold = cfg.options.recent_threshold_hours
+
+    # Combine CLI exclusions with config exclusions
+    excluded_shows = list(exclude_show) + cfg.exclusions.shows
 
     # Progress tracking state
     progress_task = None
@@ -359,18 +424,8 @@ def episodes(
             progress_ctx.update(progress_task, description=stage, completed=current, total=total)
 
     try:
-        # Connect to Plex
-        with Progress(
-            SpinnerColumn(),
-            TextColumn("[progress.description]{task.description}"),
-            BarColumn(),
-            TaskProgressColumn(),
-            console=console,
-            transient=True,
-        ) as progress:
-            progress_ctx = progress
-            progress_task = progress.add_task("Connecting to Plex...", total=None)
-
+        if quiet:
+            # Quiet mode: no progress indicators
             try:
                 plex = PlexClient()
                 plex.connect()
@@ -378,10 +433,6 @@ def episodes(
                 console.print(f"[red]Plex error:[/red] {e}")
                 sys.exit(1)
 
-            progress.update(progress_task, description=f"Connected to {plex.server_name}")
-
-            # Connect to TVDB
-            progress.update(progress_task, description="Connecting to TVDB...")
             try:
                 tvdb = TVDBClient()
                 tvdb.test_connection()
@@ -389,17 +440,59 @@ def episodes(
                 console.print(f"[red]TVDB error:[/red] {e}")
                 sys.exit(1)
 
-            # Find gaps
             finder = EpisodeGapFinder(
                 plex_client=plex,
                 tvdb_client=tvdb,
                 include_future=include_future,
                 include_specials=include_specials,
-                progress_callback=progress_callback,
+                recent_threshold_hours=recent_threshold,
+                excluded_shows=excluded_shows,
             )
-
-            progress.update(progress_task, description="Scanning...", total=1, completed=0)
             report = finder.find_gaps(library)
+        else:
+            # Normal mode with progress
+            with Progress(
+                SpinnerColumn(),
+                TextColumn("[progress.description]{task.description}"),
+                BarColumn(),
+                TaskProgressColumn(),
+                console=console,
+                transient=True,
+            ) as progress:
+                progress_ctx = progress
+                progress_task = progress.add_task("Connecting to Plex...", total=None)
+
+                try:
+                    plex = PlexClient()
+                    plex.connect()
+                except PlexError as e:
+                    console.print(f"[red]Plex error:[/red] {e}")
+                    sys.exit(1)
+
+                progress.update(progress_task, description=f"Connected to {plex.server_name}")
+
+                # Connect to TVDB
+                progress.update(progress_task, description="Connecting to TVDB...")
+                try:
+                    tvdb = TVDBClient()
+                    tvdb.test_connection()
+                except TVDBError as e:
+                    console.print(f"[red]TVDB error:[/red] {e}")
+                    sys.exit(1)
+
+                # Find gaps
+                finder = EpisodeGapFinder(
+                    plex_client=plex,
+                    tvdb_client=tvdb,
+                    include_future=include_future,
+                    include_specials=include_specials,
+                    recent_threshold_hours=recent_threshold,
+                    excluded_shows=excluded_shows,
+                    progress_callback=progress_callback,
+                )
+
+                progress.update(progress_task, description="Scanning...", total=1, completed=0)
+                report = finder.find_gaps(library)
 
         # Output results
         if format == "json":
@@ -460,7 +553,46 @@ def config() -> None:
 @config.command(name="show")
 def config_show() -> None:
     """Show current configuration."""
-    console.print("[yellow]Configuration display coming soon![/yellow]")
+    from complexionist.config import find_config_file, get_config
+
+    cfg = get_config()
+    config_file = find_config_file()
+
+    console.print("[bold]Current Configuration[/bold]")
+    console.print()
+
+    if config_file:
+        console.print(f"[dim]Config file:[/dim] {config_file}")
+    else:
+        console.print("[dim]Config file:[/dim] (none - using defaults)")
+    console.print()
+
+    # Plex
+    console.print("[bold]Plex:[/bold]")
+    url = cfg.plex.url or "(from PLEX_URL env)"
+    token = "(set)" if cfg.plex.token else "(from PLEX_TOKEN env)"
+    console.print(f"  URL: {url}")
+    console.print(f"  Token: {token}")
+    console.print()
+
+    # Options
+    console.print("[bold]Options:[/bold]")
+    console.print(f"  Exclude future: {cfg.options.exclude_future}")
+    console.print(f"  Exclude specials: {cfg.options.exclude_specials}")
+    console.print(f"  Recent threshold: {cfg.options.recent_threshold_hours} hours")
+    console.print(f"  Min collection size: {cfg.options.min_collection_size}")
+    console.print()
+
+    # Exclusions
+    console.print("[bold]Exclusions:[/bold]")
+    if cfg.exclusions.shows:
+        console.print(f"  Shows: {', '.join(cfg.exclusions.shows)}")
+    else:
+        console.print("  Shows: (none)")
+    if cfg.exclusions.collections:
+        console.print(f"  Collections: {', '.join(cfg.exclusions.collections)}")
+    else:
+        console.print("  Collections: (none)")
 
 
 @config.command(name="path")
@@ -468,13 +600,44 @@ def config_path() -> None:
     """Show configuration file paths."""
     from pathlib import Path
 
+    from complexionist.config import find_config_file, get_config_paths
+
+    console.print("[bold]Configuration paths (in priority order):[/bold]")
+    config_file = find_config_file()
+
+    for path in get_config_paths():
+        if path.exists():
+            if path == config_file:
+                console.print(f"  [green]{path}[/green] (active)")
+            else:
+                console.print(f"  {path} (exists)")
+        else:
+            console.print(f"  [dim]{path}[/dim]")
+
+    console.print()
+    console.print("[bold]Other paths:[/bold]")
     home = Path.home()
     config_dir = home / ".complexionist"
+    console.print(f"  Cache dir: {config_dir / 'cache'}")
+    console.print(f"  .env file: {Path.cwd() / '.env'}")
 
-    console.print("[bold]Configuration paths:[/bold]")
-    console.print(f"  Config dir:  {config_dir}")
-    console.print(f"  Cache dir:   {config_dir / 'cache'}")
-    console.print(f"  .env file:   {Path.cwd() / '.env'}")
+
+@config.command(name="init")
+@click.option("--force", is_flag=True, help="Overwrite existing config file")
+def config_init(force: bool) -> None:
+    """Create a default configuration file."""
+    from complexionist.config import get_config_dir, save_default_config
+
+    config_path = get_config_dir() / "config.yaml"
+
+    if config_path.exists() and not force:
+        console.print(f"[yellow]Config file already exists:[/yellow] {config_path}")
+        console.print("Use --force to overwrite.")
+        sys.exit(1)
+
+    save_default_config(config_path)
+    console.print(f"[green]Created config file:[/green] {config_path}")
+    console.print("Edit this file to customize your settings.")
 
 
 @main.group()

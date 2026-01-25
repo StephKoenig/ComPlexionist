@@ -362,13 +362,67 @@ See `TODO.md` for forward-looking work items.
 
 ---
 
+## Phase 6: CLI Polish (2025-01-25)
+
+**Why:** Polish the CLI experience with configuration file support, content exclusions, and filtering options for v1.0 release.
+
+**What we did:**
+
+### Configuration File Support (YAML)
+- Created `config.py` module with Pydantic models
+- Config file search: `./config.yaml`, `~/.complexionist/config.yaml`
+- Environment variable interpolation (`${VAR}` syntax)
+- Config sections: plex, tmdb, tvdb, options, exclusions
+- CLI commands: `config show`, `config path`, `config init`
+
+### Show/Collection Exclusion Lists
+- `EpisodeGapFinder`: Skip shows by title (case-insensitive)
+- `MovieGapFinder`: Skip collections by name (case-insensitive)
+- CLI: `--exclude-show` option (can be used multiple times)
+- Config: `exclusions.shows` and `exclusions.collections` lists
+
+### Recent Episode Threshold
+- Filter out episodes aired within N hours
+- `EpisodeGapFinder`: `recent_threshold_hours` parameter
+- CLI: `--recent-threshold` option
+- Config default: 24 hours
+
+### Minimum Collection Size
+- Filter out small collections (default: 2 movies)
+- `MovieGapFinder`: `min_collection_size` parameter
+- CLI: `--min-collection-size` option
+
+### Quiet Mode
+- `--quiet` / `-q` flag on main command
+- Suppresses progress indicators
+- Shows only results
+
+**Data models (Pydantic):**
+- `PlexConfig`: url, token
+- `TMDBConfig`: api_key
+- `TVDBConfig`: api_key, pin
+- `OptionsConfig`: exclude_future, exclude_specials, recent_threshold_hours, min_collection_size
+- `ExclusionsConfig`: shows[], collections[]
+- `AppConfig`: All of the above
+
+**Key files:**
+- `src/complexionist/config.py` - Configuration module
+- `src/complexionist/cli.py` - Updated CLI with new options
+- `src/complexionist/gaps/movies.py` - min_collection_size, excluded_collections
+- `src/complexionist/gaps/episodes.py` - recent_threshold_hours, excluded_shows
+- `tests/test_config.py` (18 tests)
+- `tests/test_gaps.py` - 10 new tests for exclusions/filtering
+
+---
+
 ## Current Status
 
-**Tests:** 96 total, all passing
+**Tests:** 122 total, all passing
 - CLI: 6 tests
+- Config: 18 tests
 - Plex: 17 tests
 - TMDB: 14 tests
-- Gaps: 39 tests (15 movie + 24 episode)
+- Gaps: 47 tests (19 movie + 28 episode)
 - TVDB: 20 tests
 
-**Next:** Phase 6 (CLI Polish) - Configuration file support, show exclusion list, error handling refinements
+**Next:** Phase 7 (Caching v1.1) - TTL-based caching for API responses

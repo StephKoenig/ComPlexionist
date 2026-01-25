@@ -355,6 +355,118 @@ class TestMovieGapFinder:
         assert report.total_movies_scanned == 2
         assert report.movies_with_tmdb_id == 1
 
+    def test_find_gaps_min_collection_size(self) -> None:
+        """Test that small collections are excluded."""
+        movies = [
+            PlexMovie(rating_key="1", title="Movie 1", tmdb_id=100),
+        ]
+        plex = self._create_mock_plex_client(movies)
+
+        # Collection with only 2 movies (1 owned, 1 missing)
+        movie_collections = {100: 1}
+        collections = {
+            1: TMDBCollection(
+                id=1,
+                name="Small Collection",
+                parts=[
+                    TMDBMovie(id=100, title="Movie 1", release_date=date(2020, 1, 1)),
+                    TMDBMovie(id=101, title="Movie 2", release_date=date(2021, 1, 1)),
+                ],
+            ),
+        }
+        tmdb = self._create_mock_tmdb_client(movie_collections, collections)
+
+        # With min_collection_size=3, this collection should be skipped
+        finder = MovieGapFinder(plex, tmdb, min_collection_size=3)
+        report = finder.find_gaps()
+
+        assert report.collections_with_gaps == []
+
+    def test_find_gaps_min_collection_size_includes_large(self) -> None:
+        """Test that large collections are included."""
+        movies = [
+            PlexMovie(rating_key="1", title="Movie 1", tmdb_id=100),
+        ]
+        plex = self._create_mock_plex_client(movies)
+
+        # Collection with 3 movies
+        movie_collections = {100: 1}
+        collections = {
+            1: TMDBCollection(
+                id=1,
+                name="Large Collection",
+                parts=[
+                    TMDBMovie(id=100, title="Movie 1", release_date=date(2020, 1, 1)),
+                    TMDBMovie(id=101, title="Movie 2", release_date=date(2021, 1, 1)),
+                    TMDBMovie(id=102, title="Movie 3", release_date=date(2022, 1, 1)),
+                ],
+            ),
+        }
+        tmdb = self._create_mock_tmdb_client(movie_collections, collections)
+
+        # With min_collection_size=3, this collection should be included
+        finder = MovieGapFinder(plex, tmdb, min_collection_size=3)
+        report = finder.find_gaps()
+
+        assert len(report.collections_with_gaps) == 1
+        assert report.collections_with_gaps[0].missing_count == 2
+
+    def test_find_gaps_excluded_collections(self) -> None:
+        """Test that excluded collections are skipped."""
+        movies = [
+            PlexMovie(rating_key="1", title="Movie 1", tmdb_id=100),
+        ]
+        plex = self._create_mock_plex_client(movies)
+
+        movie_collections = {100: 1}
+        collections = {
+            1: TMDBCollection(
+                id=1,
+                name="Skip This Collection",
+                parts=[
+                    TMDBMovie(id=100, title="Movie 1", release_date=date(2020, 1, 1)),
+                    TMDBMovie(id=101, title="Movie 2", release_date=date(2021, 1, 1)),
+                ],
+            ),
+        }
+        tmdb = self._create_mock_tmdb_client(movie_collections, collections)
+
+        finder = MovieGapFinder(
+            plex, tmdb,
+            excluded_collections=["Skip This Collection"],
+        )
+        report = finder.find_gaps()
+
+        assert report.collections_with_gaps == []
+
+    def test_find_gaps_excluded_collections_case_insensitive(self) -> None:
+        """Test that collection exclusions are case-insensitive."""
+        movies = [
+            PlexMovie(rating_key="1", title="Movie 1", tmdb_id=100),
+        ]
+        plex = self._create_mock_plex_client(movies)
+
+        movie_collections = {100: 1}
+        collections = {
+            1: TMDBCollection(
+                id=1,
+                name="The Collection",
+                parts=[
+                    TMDBMovie(id=100, title="Movie 1", release_date=date(2020, 1, 1)),
+                    TMDBMovie(id=101, title="Movie 2", release_date=date(2021, 1, 1)),
+                ],
+            ),
+        }
+        tmdb = self._create_mock_tmdb_client(movie_collections, collections)
+
+        finder = MovieGapFinder(
+            plex, tmdb,
+            excluded_collections=["THE COLLECTION"],  # Different case
+        )
+        report = finder.find_gaps()
+
+        assert report.collections_with_gaps == []
+
 
 # ============================================================================
 # Episode Gap Detection Tests
@@ -824,3 +936,133 @@ class TestEpisodeGapFinder:
 
         assert report.total_shows_scanned == 2
         assert report.shows_with_tvdb_id == 1
+
+    def test_find_gaps_excluded_shows(self) -> None:
+        """Test that excluded shows are skipped."""
+        shows = [
+            PlexShow(rating_key="1", title="Regular Show", tvdb_id=100),
+            PlexShow(rating_key="2", title="Daily Talk Show", tvdb_id=200),
+        ]
+        plex_episodes = {
+            "1": [
+                PlexEpisode(rating_key="e1", title="Ep 1", season_number=1, episode_number=1),
+            ],
+            "2": [
+                PlexEpisode(rating_key="e1", title="Ep 1", season_number=1, episode_number=1),
+            ],
+        }
+        plex = self._create_mock_plex_client(shows, plex_episodes)
+
+        tvdb_episodes = {
+            100: [
+                TVDBEpisode(id=1, seriesId=100, seasonNumber=1, number=1, aired=date(2020, 1, 1)),
+                TVDBEpisode(id=2, seriesId=100, seasonNumber=1, number=2, aired=date(2020, 1, 8)),
+            ],
+            200: [
+                TVDBEpisode(id=3, seriesId=200, seasonNumber=1, number=1, aired=date(2020, 1, 1)),
+                TVDBEpisode(id=4, seriesId=200, seasonNumber=1, number=2, aired=date(2020, 1, 8)),
+            ],
+        }
+        tvdb = self._create_mock_tvdb_client(tvdb_episodes)
+
+        finder = EpisodeGapFinder(
+            plex, tvdb,
+            excluded_shows=["Daily Talk Show"],
+        )
+        report = finder.find_gaps()
+
+        # Only "Regular Show" should be in results (missing 1 episode)
+        assert len(report.shows_with_gaps) == 1
+        assert report.shows_with_gaps[0].show_title == "Regular Show"
+
+    def test_find_gaps_excluded_shows_case_insensitive(self) -> None:
+        """Test that show exclusions are case-insensitive."""
+        shows = [
+            PlexShow(rating_key="1", title="Daily Talk Show", tvdb_id=100),
+        ]
+        plex_episodes = {
+            "1": [
+                PlexEpisode(rating_key="e1", title="Ep 1", season_number=1, episode_number=1),
+            ],
+        }
+        plex = self._create_mock_plex_client(shows, plex_episodes)
+
+        tvdb_episodes = {
+            100: [
+                TVDBEpisode(id=1, seriesId=100, seasonNumber=1, number=1, aired=date(2020, 1, 1)),
+                TVDBEpisode(id=2, seriesId=100, seasonNumber=1, number=2, aired=date(2020, 1, 8)),
+            ],
+        }
+        tvdb = self._create_mock_tvdb_client(tvdb_episodes)
+
+        finder = EpisodeGapFinder(
+            plex, tvdb,
+            excluded_shows=["DAILY TALK SHOW"],  # Different case
+        )
+        report = finder.find_gaps()
+
+        # Show should be excluded
+        assert report.shows_with_tvdb_id == 0
+
+    def test_find_gaps_recent_threshold(self) -> None:
+        """Test that recently aired episodes are excluded."""
+        from datetime import datetime, timedelta
+
+        shows = [PlexShow(rating_key="1", title="Show", tvdb_id=100)]
+        plex_episodes = {
+            "1": [
+                PlexEpisode(rating_key="e1", title="Ep 1", season_number=1, episode_number=1),
+            ]
+        }
+        plex = self._create_mock_plex_client(shows, plex_episodes)
+
+        # Episode that aired very recently (within last hour)
+        recent_date = (datetime.now() - timedelta(hours=1)).date()
+        old_date = date(2020, 1, 1)
+
+        tvdb_episodes = {
+            100: [
+                TVDBEpisode(id=1, seriesId=100, seasonNumber=1, number=1, aired=old_date),
+                TVDBEpisode(id=2, seriesId=100, seasonNumber=1, number=2, name="Recent", aired=recent_date),
+            ]
+        }
+        tvdb = self._create_mock_tvdb_client(tvdb_episodes)
+
+        # With 24h threshold, recent episode should be excluded
+        finder = EpisodeGapFinder(plex, tvdb, recent_threshold_hours=24)
+        report = finder.find_gaps()
+
+        # Should be complete (recent episode excluded)
+        assert report.shows_with_gaps == []
+
+    def test_find_gaps_recent_threshold_zero_includes_all(self) -> None:
+        """Test that threshold of 0 includes all aired episodes."""
+        from datetime import datetime, timedelta
+
+        shows = [PlexShow(rating_key="1", title="Show", tvdb_id=100)]
+        plex_episodes = {
+            "1": [
+                PlexEpisode(rating_key="e1", title="Ep 1", season_number=1, episode_number=1),
+            ]
+        }
+        plex = self._create_mock_plex_client(shows, plex_episodes)
+
+        # Episode that aired very recently
+        recent_date = (datetime.now() - timedelta(hours=1)).date()
+        old_date = date(2020, 1, 1)
+
+        tvdb_episodes = {
+            100: [
+                TVDBEpisode(id=1, seriesId=100, seasonNumber=1, number=1, aired=old_date),
+                TVDBEpisode(id=2, seriesId=100, seasonNumber=1, number=2, name="Recent", aired=recent_date),
+            ]
+        }
+        tvdb = self._create_mock_tvdb_client(tvdb_episodes)
+
+        # With threshold=0, all aired episodes should be included
+        finder = EpisodeGapFinder(plex, tvdb, recent_threshold_hours=0)
+        report = finder.find_gaps()
+
+        # Should show missing episode
+        assert len(report.shows_with_gaps) == 1
+        assert report.shows_with_gaps[0].missing_count == 1

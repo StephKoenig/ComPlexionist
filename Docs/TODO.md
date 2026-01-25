@@ -1,13 +1,12 @@
 # ComPlexionist - Development TODO
 
-## Current Focus: Phase 6 - CLI Polish (v1.0)
+## Current Focus: Phase 7 - Caching (v1.1)
 
-- [ ] Configuration file support (YAML)
-- [ ] Show exclusion list for TV episodes
-- [ ] Recent episode threshold (24h) filtering
-- [ ] `--quiet` flag for minimal output
-- [ ] `--min-collection-size` for filtering small collections
-- [ ] Comprehensive error handling review
+- [ ] Design cache storage (SQLite or JSON)
+- [ ] Implement TTL-based caching
+- [ ] `--no-cache` flag implementation
+- [ ] `cache --clear` command
+- [ ] `cache --stats` command
 
 ---
 
@@ -65,11 +64,7 @@
 - [x] Add progress indicators
 - [x] Text/JSON/CSV output formats
 
----
-
-## Upcoming Phases
-
-### Phase 6: CLI Polish (v1.0)
+### Phase 6: CLI Polish (v1.0) ✓
 - [x] Wire movie gap detection into CLI `movies` command
 - [x] JSON output format (movies)
 - [x] CSV output format (movies)
@@ -77,16 +72,23 @@
 - [x] Wire episode gap detection into CLI `episodes` command
 - [x] JSON output format (episodes)
 - [x] CSV output format (episodes)
-- [ ] Configuration file support (YAML)
-- [ ] Show exclusion list
-- [ ] Recent episode threshold (24h)
-- [ ] Comprehensive error handling
+- [x] Configuration file support (YAML)
+- [x] Show exclusion list (`--exclude-show` and config)
+- [x] Recent episode threshold (`--recent-threshold`)
+- [x] `--quiet` flag for minimal output
+- [x] `--min-collection-size` for filtering small collections
+- [x] Collection exclusion list (config)
+
+---
+
+## Upcoming Phases
 
 ### Phase 7: Caching (v1.1)
 - [ ] Design cache storage (SQLite or JSON)
 - [ ] Implement TTL-based caching
-- [ ] `--no-cache` flag
+- [ ] `--no-cache` flag implementation
 - [ ] `cache --clear` command
+- [ ] `cache --stats` command
 
 ### Phase 8: GUI (v2.0)
 - [ ] Evaluate GUI options (PyQt, Textual, Web)

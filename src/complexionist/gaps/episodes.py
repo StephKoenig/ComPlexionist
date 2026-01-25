@@ -2,6 +2,7 @@
 
 import re
 from collections.abc import Callable
+from datetime import UTC, datetime, timedelta
 
 from complexionist.gaps.models import (
     EpisodeGapReport,
@@ -78,6 +79,8 @@ class EpisodeGapFinder:
         tvdb_client: TVDBClient,
         include_future: bool = False,
         include_specials: bool = False,
+        recent_threshold_hours: int = 0,
+        excluded_shows: list[str] | None = None,
         progress_callback: Callable[[str, int, int], None] | None = None,
     ) -> None:
         """Initialize the gap finder.
@@ -87,6 +90,9 @@ class EpisodeGapFinder:
             tvdb_client: Configured TVDB client.
             include_future: Include unaired episodes in results.
             include_specials: Include Season 0 (specials) in results.
+            recent_threshold_hours: Skip episodes aired within this many hours.
+                Set to 0 to disable. Default is 0 (no threshold).
+            excluded_shows: List of show titles to skip.
             progress_callback: Optional callback for progress updates.
                 Signature: (stage: str, current: int, total: int)
         """
@@ -94,6 +100,8 @@ class EpisodeGapFinder:
         self.tvdb = tvdb_client
         self.include_future = include_future
         self.include_specials = include_specials
+        self.recent_threshold_hours = recent_threshold_hours
+        self.excluded_shows = {s.lower() for s in (excluded_shows or [])}
         self._progress = progress_callback or (lambda *args: None)
 
     def find_gaps(self, library_name: str | None = None) -> EpisodeGapReport:
@@ -116,8 +124,11 @@ class EpisodeGapFinder:
         else:
             lib_name = library_name
 
-        # Step 2: Filter shows with TVDB IDs
-        shows_with_tvdb = [s for s in plex_shows if s.has_tvdb_id]
+        # Step 2: Filter shows with TVDB IDs and apply exclusions
+        shows_with_tvdb = [
+            s for s in plex_shows
+            if s.has_tvdb_id and s.title.lower() not in self.excluded_shows
+        ]
 
         # Step 3: Process each show and find gaps
         show_gaps: list[ShowGap] = []
@@ -219,6 +230,14 @@ class EpisodeGapFinder:
         """
         filtered = []
 
+        # Calculate the recent threshold cutoff
+        if self.recent_threshold_hours > 0:
+            recent_cutoff = datetime.now(UTC) - timedelta(
+                hours=self.recent_threshold_hours
+            )
+        else:
+            recent_cutoff = None
+
         for ep in episodes:
             # Filter specials (Season 0)
             if not self.include_specials and ep.is_special:
@@ -227,6 +246,16 @@ class EpisodeGapFinder:
             # Filter future episodes
             if not self.include_future and not ep.is_aired:
                 continue
+
+            # Filter very recent episodes (within threshold hours)
+            if recent_cutoff is not None and ep.aired is not None:
+                # Convert date to datetime for comparison
+                ep_datetime = datetime(
+                    ep.aired.year, ep.aired.month, ep.aired.day,
+                    tzinfo=UTC
+                )
+                if ep_datetime > recent_cutoff:
+                    continue
 
             filtered.append(ep)
 

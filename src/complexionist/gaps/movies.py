@@ -17,6 +17,8 @@ class MovieGapFinder:
         plex_client: PlexClient,
         tmdb_client: TMDBClient,
         include_future: bool = False,
+        min_collection_size: int = 2,
+        excluded_collections: list[str] | None = None,
         progress_callback: Callable[[str, int, int], None] | None = None,
     ) -> None:
         """Initialize the gap finder.
@@ -25,12 +27,17 @@ class MovieGapFinder:
             plex_client: Connected Plex client.
             tmdb_client: Configured TMDB client.
             include_future: Include unreleased movies in results.
+            min_collection_size: Only report collections with this many movies
+                or more. Default is 2.
+            excluded_collections: List of collection names to skip.
             progress_callback: Optional callback for progress updates.
                 Signature: (stage: str, current: int, total: int)
         """
         self.plex = plex_client
         self.tmdb = tmdb_client
         self.include_future = include_future
+        self.min_collection_size = min_collection_size
+        self.excluded_collections = {c.lower() for c in (excluded_collections or [])}
         self._progress = progress_callback or (lambda *args: None)
 
     def find_gaps(self, library_name: str | None = None) -> MovieGapReport:
@@ -149,11 +156,19 @@ class MovieGapFinder:
             except TMDBNotFoundError:
                 continue
 
+            # Skip excluded collections
+            if collection.name.lower() in self.excluded_collections:
+                continue
+
             # Get movies to consider (released or all if include_future)
             if self.include_future:
                 movies_to_check = collection.parts
             else:
                 movies_to_check = collection.released_movies
+
+            # Skip small collections
+            if len(movies_to_check) < self.min_collection_size:
+                continue
 
             # Find missing movies
             collection_movie_ids = {m.id for m in movies_to_check}
