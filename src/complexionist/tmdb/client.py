@@ -1,12 +1,18 @@
 """TMDB API client."""
 
+from __future__ import annotations
+
 import os
 from datetime import date
+from typing import TYPE_CHECKING
 
 import httpx
 from pydantic import ValidationError
 
 from complexionist.tmdb.models import TMDBCollection, TMDBMovie, TMDBMovieDetails
+
+if TYPE_CHECKING:
+    from complexionist.cache import Cache
 
 
 class TMDBError(Exception):
@@ -45,12 +51,14 @@ class TMDBClient:
         self,
         api_key: str | None = None,
         timeout: float = DEFAULT_TIMEOUT,
+        cache: Cache | None = None,
     ) -> None:
         """Initialize the TMDB client.
 
         Args:
             api_key: TMDB API key. If not provided, reads from TMDB_API_KEY env var.
             timeout: Request timeout in seconds.
+            cache: Optional cache instance for storing API responses.
         """
         self.api_key = api_key or os.environ.get("TMDB_API_KEY")
         if not self.api_key:
@@ -59,6 +67,7 @@ class TMDBClient:
                 "or pass api_key parameter."
             )
 
+        self._cache = cache
         self._client = httpx.Client(
             base_url=self.BASE_URL,
             timeout=timeout,
@@ -70,7 +79,7 @@ class TMDBClient:
         """Close the HTTP client."""
         self._client.close()
 
-    def __enter__(self) -> "TMDBClient":
+    def __enter__(self) -> TMDBClient:
         return self
 
     def __exit__(self, *args: object) -> None:
@@ -118,6 +127,14 @@ class TMDBClient:
         Returns:
             Movie details with collection info if applicable.
         """
+        from complexionist.cache import TMDB_MOVIE_TTL_HOURS
+
+        # Check cache first
+        if self._cache:
+            cached = self._cache.get("tmdb", "movies", str(movie_id))
+            if cached:
+                return TMDBMovieDetails.model_validate(cached)
+
         response = self._client.get(f"/movie/{movie_id}")
         data = self._handle_response(response)
 
@@ -133,7 +150,7 @@ class TMDBClient:
             }
 
         try:
-            return TMDBMovieDetails(
+            result = TMDBMovieDetails(
                 id=data["id"],
                 title=data["title"],
                 release_date=self._parse_date(data.get("release_date")),
@@ -141,6 +158,19 @@ class TMDBClient:
                 poster_path=data.get("poster_path"),
                 belongs_to_collection=collection_info,
             )
+
+            # Store in cache
+            if self._cache:
+                year = result.year or ""
+                description = f"{result.title} ({year})" if year else result.title
+                self._cache.set(
+                    "tmdb", "movies", str(movie_id),
+                    result.model_dump(mode="json"),
+                    ttl_hours=TMDB_MOVIE_TTL_HOURS,
+                    description=description,
+                )
+
+            return result
         except ValidationError as e:
             raise TMDBError(f"Failed to parse movie response: {e}") from e
 
@@ -153,6 +183,14 @@ class TMDBClient:
         Returns:
             Collection with all movies.
         """
+        from complexionist.cache import TMDB_COLLECTION_TTL_HOURS
+
+        # Check cache first
+        if self._cache:
+            cached = self._cache.get("tmdb", "collections", str(collection_id))
+            if cached:
+                return TMDBCollection.model_validate(cached)
+
         response = self._client.get(f"/collection/{collection_id}")
         data = self._handle_response(response)
 
@@ -169,7 +207,7 @@ class TMDBClient:
             movies.append(movie)
 
         try:
-            return TMDBCollection(
+            result = TMDBCollection(
                 id=data["id"],
                 name=data["name"],
                 overview=data.get("overview", ""),
@@ -177,6 +215,17 @@ class TMDBClient:
                 backdrop_path=data.get("backdrop_path"),
                 parts=movies,
             )
+
+            # Store in cache
+            if self._cache:
+                self._cache.set(
+                    "tmdb", "collections", str(collection_id),
+                    result.model_dump(mode="json"),
+                    ttl_hours=TMDB_COLLECTION_TTL_HOURS,
+                    description=result.name,
+                )
+
+            return result
         except ValidationError as e:
             raise TMDBError(f"Failed to parse collection response: {e}") from e
 

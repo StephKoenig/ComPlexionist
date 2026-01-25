@@ -415,9 +415,77 @@ See `TODO.md` for forward-looking work items.
 
 ---
 
+## Phase 7: Caching (2025-01-25)
+
+**Why:** Reduce redundant API calls, respect rate limits, and speed up subsequent scans.
+
+**What we did:**
+
+### Cache Module
+- Created `cache.py` module with file-based JSON caching
+- Human-readable cache structure:
+  ```
+  ~/.complexionist/cache/
+  ├── tmdb/
+  │   ├── movies/
+  │   │   └── {movie_id}.json
+  │   └── collections/
+  │       └── {collection_id}.json
+  └── tvdb/
+      └── episodes/
+          └── {series_id}_{season_type}.json
+  ```
+- Each cache file includes metadata:
+  - `cached_at`: When the entry was cached
+  - `expires_at`: When the entry expires
+  - `ttl_hours`: Time-to-live in hours
+  - `description`: Human-readable description
+
+### TTL Configuration (per spec)
+- TMDB movies: 7 days (168 hours) - rarely change
+- TMDB collections: 7 days (168 hours) - new movies are rare
+- TVDB episodes: 24 hours - episodes can be added
+
+### Cache Integration
+- Updated `TMDBClient`:
+  - Optional `cache` parameter in `__init__`
+  - `get_movie()` checks/stores cache
+  - `get_collection()` checks/stores cache
+- Updated `TVDBClient`:
+  - Optional `cache` parameter in `__init__`
+  - `get_series_episodes()` checks/stores cache
+
+### CLI Commands
+- `--no-cache` flag wired through to both `movies` and `episodes` commands
+- `cache clear` - Remove all cached entries (with confirmation)
+- `cache stats` - Display cache statistics:
+  - Total entries and size
+  - Breakdown by category (TMDB movies/collections, TVDB episodes)
+  - Oldest/newest entry timestamps
+  - Expired entry count
+
+### Cache Class API
+- `get(namespace, category, key)` - Get cached data if not expired
+- `set(namespace, category, key, data, ttl_hours, description)` - Store data
+- `delete(namespace, category, key)` - Remove specific entry
+- `clear(namespace=None)` - Clear all or specific namespace
+- `stats()` - Get `CacheStats` dataclass
+- `get_expired_count()` - Count expired entries
+- `cleanup_expired()` - Remove expired entries
+
+**Key files:**
+- `src/complexionist/cache.py` - Cache module (new)
+- `src/complexionist/tmdb/client.py` - Added cache support
+- `src/complexionist/tvdb/client.py` - Added cache support
+- `src/complexionist/cli.py` - Updated commands with cache
+- `tests/test_cache.py` - 25 new tests
+
+---
+
 ## Current Status
 
-**Tests:** 122 total, all passing
+**Tests:** 147 total, all passing
+- Cache: 25 tests
 - CLI: 6 tests
 - Config: 18 tests
 - Plex: 17 tests
@@ -425,4 +493,4 @@ See `TODO.md` for forward-looking work items.
 - Gaps: 47 tests (19 movie + 28 episode)
 - TVDB: 20 tests
 
-**Next:** Phase 7 (Caching v1.1) - TTL-based caching for API responses
+**Next:** Phase 8 (GUI v2.0) - Desktop or web-based interface

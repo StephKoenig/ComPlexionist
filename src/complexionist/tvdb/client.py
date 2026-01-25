@@ -1,12 +1,18 @@
 """TVDB v4 API client."""
 
+from __future__ import annotations
+
 import os
 from datetime import date
+from typing import TYPE_CHECKING
 
 import httpx
 from pydantic import ValidationError
 
 from complexionist.tvdb.models import TVDBEpisode, TVDBSeries, TVDBSeriesExtended
+
+if TYPE_CHECKING:
+    from complexionist.cache import Cache
 
 
 class TVDBError(Exception):
@@ -50,12 +56,14 @@ class TVDBClient:
         self,
         api_key: str | None = None,
         timeout: float = DEFAULT_TIMEOUT,
+        cache: Cache | None = None,
     ) -> None:
         """Initialize the TVDB client.
 
         Args:
             api_key: TVDB API key. If not provided, reads from TVDB_API_KEY env var.
             timeout: Request timeout in seconds.
+            cache: Optional cache instance for storing API responses.
         """
         self.api_key = api_key or os.environ.get("TVDB_API_KEY")
         if not self.api_key:
@@ -65,6 +73,7 @@ class TVDBClient:
             )
 
         self._timeout = timeout
+        self._cache = cache
         self._token: str | None = None
         self._client: httpx.Client | None = None
 
@@ -111,7 +120,7 @@ class TVDBClient:
             self._client.close()
             self._client = None
 
-    def __enter__(self) -> "TVDBClient":
+    def __enter__(self) -> TVDBClient:
         return self
 
     def __exit__(self, *args: object) -> None:
@@ -197,6 +206,17 @@ class TVDBClient:
         Returns:
             List of all episodes.
         """
+        from complexionist.cache import TVDB_EPISODES_TTL_HOURS
+
+        # Build cache key including season_type
+        cache_key = f"{series_id}_{season_type}"
+
+        # Check cache first
+        if self._cache:
+            cached = self._cache.get("tvdb", "episodes", cache_key)
+            if cached:
+                return [TVDBEpisode.model_validate(ep) for ep in cached]
+
         client = self._get_client()
         all_episodes: list[TVDBEpisode] = []
         page = 0
@@ -235,6 +255,15 @@ class TVDBClient:
                 break
 
             page += 1
+
+        # Store in cache
+        if self._cache and all_episodes:
+            self._cache.set(
+                "tvdb", "episodes", cache_key,
+                [ep.model_dump(mode="json") for ep in all_episodes],
+                ttl_hours=TVDB_EPISODES_TTL_HOURS,
+                description=f"Series {series_id} ({len(all_episodes)} episodes)",
+            )
 
         return all_episodes
 

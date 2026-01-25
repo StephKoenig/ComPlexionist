@@ -1,12 +1,10 @@
 # ComPlexionist - Development TODO
 
-## Current Focus: Phase 7 - Caching (v1.1)
+## Current Focus: Phase 8 - GUI (v2.0)
 
-- [ ] Design cache storage (SQLite or JSON)
-- [ ] Implement TTL-based caching
-- [ ] `--no-cache` flag implementation
-- [ ] `cache --clear` command
-- [ ] `cache --stats` command
+- [ ] Evaluate GUI options (PyQt, Textual, Web)
+- [ ] Design UI/UX
+- [ ] Implement GUI
 
 ---
 
@@ -79,16 +77,16 @@
 - [x] `--min-collection-size` for filtering small collections
 - [x] Collection exclusion list (config)
 
+### Phase 7: Caching (v1.1) ✓
+- [x] Design cache storage (JSON files)
+- [x] Implement TTL-based caching (7 days TMDB, 24h TVDB)
+- [x] `--no-cache` flag implementation
+- [x] `cache clear` command
+- [x] `cache stats` command
+
 ---
 
 ## Upcoming Phases
-
-### Phase 7: Caching (v1.1)
-- [ ] Design cache storage (SQLite or JSON)
-- [ ] Implement TTL-based caching
-- [ ] `--no-cache` flag implementation
-- [ ] `cache --clear` command
-- [ ] `cache --stats` command
 
 ### Phase 8: GUI (v2.0)
 - [ ] Evaluate GUI options (PyQt, Textual, Web)

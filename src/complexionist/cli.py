@@ -69,6 +69,7 @@ def movies(
     format: str,
 ) -> None:
     """Find missing movies from collections in your Plex library."""
+    from complexionist.cache import Cache
     from complexionist.gaps import MovieGapFinder
     from complexionist.plex import PlexClient, PlexError
     from complexionist.tmdb import TMDBClient, TMDBError
@@ -80,6 +81,9 @@ def movies(
     # Use CLI option or config default
     if min_collection_size is None:
         min_collection_size = cfg.options.min_collection_size
+
+    # Create cache (disabled if --no-cache)
+    cache = Cache(enabled=not no_cache)
 
     # Progress tracking state
     progress_task = None
@@ -101,7 +105,7 @@ def movies(
                 sys.exit(1)
 
             try:
-                tmdb = TMDBClient()
+                tmdb = TMDBClient(cache=cache)
                 tmdb.test_connection()
             except TMDBError as e:
                 console.print(f"[red]TMDB error:[/red] {e}")
@@ -140,7 +144,7 @@ def movies(
                 # Connect to TMDB
                 progress.update(progress_task, description="Connecting to TMDB...")
                 try:
-                    tmdb = TMDBClient()
+                    tmdb = TMDBClient(cache=cache)
                     tmdb.test_connection()
                 except TMDBError as e:
                     console.print(f"[red]TMDB error:[/red] {e}")
@@ -399,6 +403,7 @@ def episodes(
     format: str,
 ) -> None:
     """Find missing episodes from TV shows in your Plex library."""
+    from complexionist.cache import Cache
     from complexionist.gaps import EpisodeGapFinder
     from complexionist.plex import PlexClient, PlexError
     from complexionist.tvdb import TVDBClient, TVDBError
@@ -413,6 +418,9 @@ def episodes(
 
     # Combine CLI exclusions with config exclusions
     excluded_shows = list(exclude_show) + cfg.exclusions.shows
+
+    # Create cache (disabled if --no-cache)
+    cache = Cache(enabled=not no_cache)
 
     # Progress tracking state
     progress_task = None
@@ -434,7 +442,7 @@ def episodes(
                 sys.exit(1)
 
             try:
-                tvdb = TVDBClient()
+                tvdb = TVDBClient(cache=cache)
                 tvdb.test_connection()
             except TVDBError as e:
                 console.print(f"[red]TVDB error:[/red] {e}")
@@ -474,7 +482,7 @@ def episodes(
                 # Connect to TVDB
                 progress.update(progress_task, description="Connecting to TVDB...")
                 try:
-                    tvdb = TVDBClient()
+                    tvdb = TVDBClient(cache=cache)
                     tvdb.test_connection()
                 except TVDBError as e:
                     console.print(f"[red]TVDB error:[/red] {e}")
@@ -650,13 +658,58 @@ def cache() -> None:
 @click.confirmation_option(prompt="Are you sure you want to clear the cache?")
 def cache_clear() -> None:
     """Clear all cached API responses."""
-    console.print("[yellow]Cache clearing coming soon![/yellow]")
+    from complexionist.cache import Cache
+
+    cache = Cache()
+    count = cache.clear()
+
+    if count == 0:
+        console.print("[dim]Cache is already empty.[/dim]")
+    else:
+        console.print(f"[green]Cleared {count} cached entries.[/green]")
 
 
 @cache.command(name="stats")
 def cache_stats() -> None:
     """Show cache statistics."""
-    console.print("[yellow]Cache statistics coming soon![/yellow]")
+    from complexionist.cache import Cache
+
+    cache = Cache()
+    stats = cache.stats()
+
+    console.print("[bold]Cache Statistics[/bold]")
+    console.print()
+
+    if stats.total_entries == 0:
+        console.print("[dim]Cache is empty.[/dim]")
+        console.print()
+        console.print(f"Cache location: {cache.cache_dir}")
+        return
+
+    console.print(f"[bold]Total entries:[/bold] {stats.total_entries}")
+    console.print(f"[bold]Total size:[/bold] {stats.total_size_kb:.1f} KB")
+    console.print()
+
+    console.print("[bold]By category:[/bold]")
+    console.print(f"  TMDB movies:      {stats.tmdb_movies}")
+    console.print(f"  TMDB collections: {stats.tmdb_collections}")
+    console.print(f"  TVDB episodes:    {stats.tvdb_episodes}")
+    console.print()
+
+    if stats.oldest_entry:
+        console.print(f"[bold]Oldest entry:[/bold] {stats.oldest_entry.strftime('%Y-%m-%d %H:%M')}")
+    if stats.newest_entry:
+        console.print(f"[bold]Newest entry:[/bold] {stats.newest_entry.strftime('%Y-%m-%d %H:%M')}")
+    console.print()
+
+    # Check for expired entries
+    expired = cache.get_expired_count()
+    if expired > 0:
+        console.print(f"[yellow]Expired entries:[/yellow] {expired}")
+        console.print("[dim]Run 'cache clear' to remove expired entries.[/dim]")
+
+    console.print()
+    console.print(f"Cache location: {cache.cache_dir}")
 
 
 if __name__ == "__main__":

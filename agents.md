@@ -86,6 +86,8 @@ pip install -e ".[dev]"
 .venv/Scripts/complexionist.exe --help
 .venv/Scripts/complexionist.exe movies --help
 .venv/Scripts/complexionist.exe episodes --help
+.venv/Scripts/complexionist.exe config show
+.venv/Scripts/complexionist.exe cache stats
 ```
 
 ### Environment variables (.env file)

@@ -334,19 +334,19 @@ complexionist/
 
 ## Success Criteria
 
-### v1.0 (MVP)
-- [ ] Connect to Plex and authenticate
-- [ ] Scan movie library and detect collection gaps
-- [ ] Scan TV library and detect episode gaps
-- [ ] Exclude future releases (default on)
-- [ ] CLI with text output
-- [ ] Basic error handling
+### v1.0 (MVP) ✓
+- [x] Connect to Plex and authenticate
+- [x] Scan movie library and detect collection gaps
+- [x] Scan TV library and detect episode gaps
+- [x] Exclude future releases (default on)
+- [x] CLI with text output
+- [x] Basic error handling
 
-### v1.1
-- [ ] Caching for API responses
-- [ ] JSON/CSV output formats
-- [ ] Configuration file support
-- [ ] Show exclusion list
+### v1.1 ✓
+- [x] Caching for API responses
+- [x] JSON/CSV output formats
+- [x] Configuration file support
+- [x] Show exclusion list
 
 ### v2.0
 - [ ] GUI application
@@ -355,28 +355,44 @@ complexionist/
 
 ## Implementation Notes
 
-**Deviations from original spec (as of Phase 5):**
+**Current implementation status (as of Phase 7):**
 
-1. **Simplified Project Structure:**
-   - Plex: Consolidated into `client.py` + `models.py` (vs separate `movies.py`, `shows.py`)
-   - Output: Formatting built into `cli.py` (vs separate `output/text.py`, `json.py`, `csv.py`)
-   - TVDB: Added `models.py` for Pydantic models (not in original spec)
-   - Gaps: Added `episodes.py` for episode gap detection (includes multi-episode parsing)
+1. **Project Structure:**
+   - Plex: `client.py` + `models.py` (consolidated)
+   - Output: Formatting built into `cli.py`
+   - TMDB: `client.py` + `models.py` with cache support
+   - TVDB: `client.py` + `models.py` with cache support
+   - Gaps: `movies.py` + `episodes.py` + `models.py`
+   - Config: `config.py` for YAML configuration
+   - Cache: `cache.py` for file-based JSON caching
 
-2. **CLI Options Not Yet Implemented:**
-   - `--quiet` flag (only `--verbose` implemented)
-   - `--min-collection-size` for filtering small collections
+2. **CLI Commands Implemented:**
+   - `movies` - Find missing movies from collections
+   - `episodes` - Find missing TV episodes
+   - `scan` - Run both movies and episodes
+   - `config show` - Display current configuration
+   - `config path` - Show configuration file paths
+   - `config init` - Create default config file
+   - `cache clear` - Clear cached API responses
+   - `cache stats` - Display cache statistics
+
+3. **CLI Options Implemented:**
+   - `--verbose` / `-v` - Detailed output
+   - `--quiet` / `-q` - Minimal output (no progress)
+   - `--no-cache` - Bypass cache
+   - `--include-future` - Include unreleased content
+   - `--include-specials` - Include Season 0
+   - `--min-collection-size` - Filter small collections
+   - `--recent-threshold` - Skip recently aired episodes
+   - `--exclude-show` - Exclude specific shows
+   - `--format` / `-f` - Output format (text/json/csv)
+
+4. **Not Yet Implemented:**
    - `auth` subcommand group (using .env file instead)
    - `config --set` for programmatic config changes
 
-3. **Features Moved to Later Phases:**
-   - Configuration file support (YAML) → Phase 6
-   - Show exclusion list → Phase 6
-   - Recent episode threshold (24h) → Phase 6
-
-4. **Phase 5 Additions:**
-   - Multi-episode filename parsing supports: `S02E01-02`, `S02E01-E02`, `S02E01E02`
-   - Episode gap CLI has `--include-specials` flag for Season 0
-   - Both movie and episode commands have full text/JSON/CSV output support
-
-These are simplifications to reach MVP faster. Original spec features can be added in later phases.
+5. **Caching Implementation:**
+   - File-based JSON storage in `~/.complexionist/cache/`
+   - Human-readable cache structure with metadata
+   - TMDB movies/collections: 7-day TTL
+   - TVDB episodes: 24-hour TTL
