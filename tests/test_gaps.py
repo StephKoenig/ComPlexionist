@@ -249,7 +249,7 @@ class TestMovieGapFinder:
         }
         tmdb = self._create_mock_tmdb_client(movie_collections, collections)
 
-        finder = MovieGapFinder(plex, tmdb)
+        finder = MovieGapFinder(plex, tmdb, min_owned=1)
         report = finder.find_gaps()
 
         assert len(report.collections_with_gaps) == 1
@@ -306,7 +306,7 @@ class TestMovieGapFinder:
         }
         tmdb = self._create_mock_tmdb_client(movie_collections, collections)
 
-        finder = MovieGapFinder(plex, tmdb, include_future=True)
+        finder = MovieGapFinder(plex, tmdb, include_future=True, min_owned=1)
         report = finder.find_gaps()
 
         assert len(report.collections_with_gaps) == 1
@@ -401,7 +401,7 @@ class TestMovieGapFinder:
         tmdb = self._create_mock_tmdb_client(movie_collections, collections)
 
         # With min_collection_size=3, this collection should be included
-        finder = MovieGapFinder(plex, tmdb, min_collection_size=3)
+        finder = MovieGapFinder(plex, tmdb, min_collection_size=3, min_owned=1)
         report = finder.find_gaps()
 
         assert len(report.collections_with_gaps) == 1
@@ -464,6 +464,70 @@ class TestMovieGapFinder:
         report = finder.find_gaps()
 
         assert report.collections_with_gaps == []
+
+    def test_find_gaps_min_owned_filters_collections(self) -> None:
+        """Test that collections are filtered by min_owned threshold."""
+        # User owns only 1 movie from a collection
+        movies = [
+            PlexMovie(rating_key="1", title="Movie 1", tmdb_id=100),
+        ]
+        plex = self._create_mock_plex_client(movies)
+
+        movie_collections = {100: 1}
+        collections = {
+            1: TMDBCollection(
+                id=1,
+                name="Test Collection",
+                parts=[
+                    TMDBMovie(id=100, title="Movie 1", release_date=date(2020, 1, 1)),
+                    TMDBMovie(id=101, title="Movie 2", release_date=date(2021, 1, 1)),
+                    TMDBMovie(id=102, title="Movie 3", release_date=date(2022, 1, 1)),
+                ],
+            ),
+        }
+        tmdb = self._create_mock_tmdb_client(movie_collections, collections)
+
+        # With min_owned=2, collection should be filtered out (only owns 1)
+        finder = MovieGapFinder(plex, tmdb, min_owned=2)
+        report = finder.find_gaps()
+        assert report.collections_with_gaps == []
+
+        # With min_owned=1, collection should be included
+        finder = MovieGapFinder(plex, tmdb, min_owned=1)
+        report = finder.find_gaps()
+        assert len(report.collections_with_gaps) == 1
+        assert report.collections_with_gaps[0].missing_count == 2
+
+    def test_find_gaps_min_owned_includes_when_threshold_met(self) -> None:
+        """Test that collections are included when min_owned threshold is met."""
+        # User owns 2 movies from a collection
+        movies = [
+            PlexMovie(rating_key="1", title="Movie 1", tmdb_id=100),
+            PlexMovie(rating_key="2", title="Movie 2", tmdb_id=101),
+        ]
+        plex = self._create_mock_plex_client(movies)
+
+        movie_collections = {100: 1, 101: 1}
+        collections = {
+            1: TMDBCollection(
+                id=1,
+                name="Test Collection",
+                parts=[
+                    TMDBMovie(id=100, title="Movie 1", release_date=date(2020, 1, 1)),
+                    TMDBMovie(id=101, title="Movie 2", release_date=date(2021, 1, 1)),
+                    TMDBMovie(id=102, title="Movie 3", release_date=date(2022, 1, 1)),
+                ],
+            ),
+        }
+        tmdb = self._create_mock_tmdb_client(movie_collections, collections)
+
+        # With min_owned=2, collection should be included (owns 2)
+        finder = MovieGapFinder(plex, tmdb, min_owned=2)
+        report = finder.find_gaps()
+        assert len(report.collections_with_gaps) == 1
+        gap = report.collections_with_gaps[0]
+        assert gap.owned_movies == 2
+        assert gap.missing_count == 1
 
 
 # ============================================================================

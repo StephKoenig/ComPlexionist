@@ -46,6 +46,7 @@ class TestConfigModels:
         assert cfg.exclude_specials is True
         assert cfg.recent_threshold_hours == 24
         assert cfg.min_collection_size == 2
+        assert cfg.min_owned == 2
 
     def test_exclusions_config_defaults(self) -> None:
         """Test ExclusionsConfig has correct defaults."""
@@ -171,6 +172,75 @@ options:
         finally:
             temp_path.unlink()
 
+    def test_load_ini_config(self) -> None:
+        """Test loading configuration from INI file."""
+        config_content = """
+[plex]
+url = http://192.168.1.100:32400
+token = test_token
+
+[tmdb]
+api_key = tmdb_test_key
+
+[tvdb]
+api_key = tvdb_test_key
+
+[options]
+min_collection_size = 5
+recent_threshold_hours = 48
+min_owned = 3
+exclude_future = false
+
+[exclusions]
+shows = Daily Show, News Tonight
+collections = Anthology
+"""
+        with tempfile.NamedTemporaryFile(
+            mode="w", suffix=".cfg", delete=False, encoding="utf-8"
+        ) as f:
+            f.write(config_content)
+            temp_path = Path(f.name)
+
+        try:
+            reset_config()
+            cfg = load_config(temp_path)
+            assert cfg.plex.url == "http://192.168.1.100:32400"
+            assert cfg.plex.token == "test_token"
+            assert cfg.tmdb.api_key == "tmdb_test_key"
+            assert cfg.tvdb.api_key == "tvdb_test_key"
+            assert cfg.options.min_collection_size == 5
+            assert cfg.options.recent_threshold_hours == 48
+            assert cfg.options.min_owned == 3
+            assert cfg.options.exclude_future is False
+            assert "Daily Show" in cfg.exclusions.shows
+            assert "News Tonight" in cfg.exclusions.shows
+            assert "Anthology" in cfg.exclusions.collections
+        finally:
+            temp_path.unlink()
+
+    def test_load_ini_partial_config(self) -> None:
+        """Test loading partial INI config uses defaults for missing values."""
+        config_content = """
+[options]
+min_collection_size = 3
+"""
+        with tempfile.NamedTemporaryFile(
+            mode="w", suffix=".cfg", delete=False, encoding="utf-8"
+        ) as f:
+            f.write(config_content)
+            temp_path = Path(f.name)
+
+        try:
+            reset_config()
+            cfg = load_config(temp_path)
+            assert cfg.options.min_collection_size == 3
+            # Default values should still be present
+            assert cfg.options.recent_threshold_hours == 24
+            assert cfg.options.exclude_future is True
+            assert cfg.options.min_owned == 2
+        finally:
+            temp_path.unlink()
+
 
 class TestConfigPaths:
     """Tests for configuration path handling."""
@@ -197,19 +267,42 @@ class TestDefaultConfig:
     """Tests for default config generation."""
 
     def test_save_default_config(self) -> None:
-        """Test saving default config creates valid file."""
+        """Test saving default INI config creates valid file."""
+        import configparser
+
         with tempfile.TemporaryDirectory() as tmpdir:
-            config_path = Path(tmpdir) / "config.yaml"
+            config_path = Path(tmpdir) / "complexionist.cfg"
             result_path = save_default_config(config_path)
 
             assert result_path == config_path
             assert config_path.exists()
 
-            # Verify it's valid YAML
-            import yaml
+            # Verify it's valid INI
+            parser = configparser.ConfigParser()
+            parser.read(config_path)
+            assert parser.has_section("plex")
+            assert parser.has_section("tmdb")
+            assert parser.has_section("tvdb")
+            assert parser.has_section("options")
+            assert parser.has_section("exclusions")
 
-            with open(config_path, encoding="utf-8") as f:
-                content = yaml.safe_load(f)
-            assert "plex" in content
-            assert "options" in content
-            assert "exclusions" in content
+    def test_save_default_config_with_values(self) -> None:
+        """Test saving config with actual values."""
+        import configparser
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            config_path = Path(tmpdir) / "complexionist.cfg"
+            save_default_config(
+                config_path,
+                plex_url="http://test:32400",
+                plex_token="test_token",
+                tmdb_api_key="tmdb_key",
+                tvdb_api_key="tvdb_key",
+            )
+
+            parser = configparser.ConfigParser()
+            parser.read(config_path)
+            assert parser.get("plex", "url") == "http://test:32400"
+            assert parser.get("plex", "token") == "test_token"
+            assert parser.get("tmdb", "api_key") == "tmdb_key"
+            assert parser.get("tvdb", "api_key") == "tvdb_key"

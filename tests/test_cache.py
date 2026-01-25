@@ -11,8 +11,11 @@ from complexionist.cache import (
     TVDB_EPISODES_TTL_HOURS,
     Cache,
     CacheStats,
+    LibraryFingerprint,
+    compute_fingerprint,
     get_cache_dir,
 )
+from complexionist.plex import PlexMovie
 
 
 class TestCacheDefaults:
@@ -31,9 +34,15 @@ class TestCacheDefaults:
         assert TVDB_EPISODES_TTL_HOURS == 24
 
     def test_get_cache_dir(self) -> None:
-        """Test get_cache_dir returns correct path."""
+        """Test get_cache_dir returns correct path.
+
+        Cache directory is now stored next to config or exe directory,
+        not in ~/.complexionist/cache.
+        """
         cache_dir = get_cache_dir()
-        assert cache_dir == Path.home() / ".complexionist" / "cache"
+        # Should return a cache directory under some parent
+        assert cache_dir.name == "cache"
+        assert cache_dir.parent.exists()
 
 
 class TestCacheStats:
@@ -363,3 +372,146 @@ class TestCacheExpiration:
 
             # Non-expired entry should remain
             assert cache.get("tmdb", "movies", "456") is not None
+
+
+class TestLibraryFingerprint:
+    """Tests for library fingerprinting."""
+
+    def test_compute_fingerprint(self) -> None:
+        """Test computing fingerprint from movie list."""
+        movies = [
+            PlexMovie(rating_key="100", title="Movie A"),
+            PlexMovie(rating_key="200", title="Movie B"),
+            PlexMovie(rating_key="300", title="Movie C"),
+        ]
+
+        fingerprint = compute_fingerprint(movies)
+
+        assert fingerprint.item_count == 3
+        assert len(fingerprint.id_hash) == 32  # MD5 hash length
+
+    def test_fingerprint_order_independent(self) -> None:
+        """Test that fingerprint is independent of item order."""
+        movies1 = [
+            PlexMovie(rating_key="100", title="Movie A"),
+            PlexMovie(rating_key="200", title="Movie B"),
+        ]
+        movies2 = [
+            PlexMovie(rating_key="200", title="Movie B"),
+            PlexMovie(rating_key="100", title="Movie A"),
+        ]
+
+        fp1 = compute_fingerprint(movies1)
+        fp2 = compute_fingerprint(movies2)
+
+        # Same items in different order should produce same fingerprint
+        assert fp1.matches(fp2)
+
+    def test_fingerprint_changes_with_new_item(self) -> None:
+        """Test that fingerprint changes when item is added."""
+        movies1 = [
+            PlexMovie(rating_key="100", title="Movie A"),
+        ]
+        movies2 = [
+            PlexMovie(rating_key="100", title="Movie A"),
+            PlexMovie(rating_key="200", title="Movie B"),
+        ]
+
+        fp1 = compute_fingerprint(movies1)
+        fp2 = compute_fingerprint(movies2)
+
+        # Different items should produce different fingerprints
+        assert not fp1.matches(fp2)
+
+    def test_fingerprint_serialization(self) -> None:
+        """Test fingerprint to_dict and from_dict."""
+        movies = [PlexMovie(rating_key="100", title="Movie A")]
+        fingerprint = compute_fingerprint(movies)
+
+        data = fingerprint.to_dict()
+        restored = LibraryFingerprint.from_dict(data)
+
+        assert restored.item_count == fingerprint.item_count
+        assert restored.id_hash == fingerprint.id_hash
+
+
+class TestCacheFingerprints:
+    """Tests for cache fingerprint management."""
+
+    def test_set_and_get_library_fingerprint(self) -> None:
+        """Test storing and retrieving library fingerprints."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            cache = Cache(cache_dir=Path(tmpdir))
+
+            movies = [
+                PlexMovie(rating_key="100", title="Movie A"),
+                PlexMovie(rating_key="200", title="Movie B"),
+            ]
+            fingerprint = compute_fingerprint(movies)
+
+            cache.set_library_fingerprint("Movies", fingerprint)
+            retrieved = cache.get_library_fingerprint("Movies")
+
+            assert retrieved is not None
+            assert retrieved.item_count == fingerprint.item_count
+            assert retrieved.id_hash == fingerprint.id_hash
+
+    def test_get_nonexistent_fingerprint(self) -> None:
+        """Test retrieving fingerprint for library that doesn't exist."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            cache = Cache(cache_dir=Path(tmpdir))
+
+            result = cache.get_library_fingerprint("NonexistentLibrary")
+            assert result is None
+
+    def test_check_fingerprint_matches(self) -> None:
+        """Test checking if fingerprint matches."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            cache = Cache(cache_dir=Path(tmpdir))
+
+            movies = [PlexMovie(rating_key="100", title="Movie A")]
+            fingerprint = compute_fingerprint(movies)
+
+            cache.set_library_fingerprint("Movies", fingerprint)
+
+            # Same fingerprint should match
+            assert cache.check_fingerprint("Movies", fingerprint)
+
+    def test_check_fingerprint_no_match(self) -> None:
+        """Test checking when fingerprint doesn't match."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            cache = Cache(cache_dir=Path(tmpdir))
+
+            movies1 = [PlexMovie(rating_key="100", title="Movie A")]
+            movies2 = [
+                PlexMovie(rating_key="100", title="Movie A"),
+                PlexMovie(rating_key="200", title="Movie B"),
+            ]
+
+            fp1 = compute_fingerprint(movies1)
+            fp2 = compute_fingerprint(movies2)
+
+            cache.set_library_fingerprint("Movies", fp1)
+
+            # Different fingerprint should not match
+            assert not cache.check_fingerprint("Movies", fp2)
+
+    def test_refresh_clears_fingerprints(self) -> None:
+        """Test that refresh clears fingerprints."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            cache = Cache(cache_dir=Path(tmpdir))
+
+            movies = [PlexMovie(rating_key="100", title="Movie A")]
+            fingerprint = compute_fingerprint(movies)
+            cache.set_library_fingerprint("Movies", fingerprint)
+
+            # Add some cache data
+            cache.set("tmdb", "movies", "100", {"id": 100}, ttl_hours=24)
+
+            cache.refresh()
+
+            # Fingerprint should be gone
+            assert cache.get_library_fingerprint("Movies") is None
+
+            # Cache should be empty
+            assert cache.stats().total_entries == 0

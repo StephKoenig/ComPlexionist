@@ -18,6 +18,7 @@ class MovieGapFinder:
         tmdb_client: TMDBClient,
         include_future: bool = False,
         min_collection_size: int = 2,
+        min_owned: int = 2,
         excluded_collections: list[str] | None = None,
         progress_callback: Callable[[str, int, int], None] | None = None,
     ) -> None:
@@ -27,8 +28,10 @@ class MovieGapFinder:
             plex_client: Connected Plex client.
             tmdb_client: Configured TMDB client.
             include_future: Include unreleased movies in results.
-            min_collection_size: Only report collections with this many movies
-                or more. Default is 2.
+            min_collection_size: Only report collections with this many total
+                movies or more. Default is 2.
+            min_owned: Only report collections where you own at least this many
+                movies. Default is 2 (prevents noise from single-movie matches).
             excluded_collections: List of collection names to skip.
             progress_callback: Optional callback for progress updates.
                 Signature: (stage: str, current: int, total: int)
@@ -37,6 +40,7 @@ class MovieGapFinder:
         self.tmdb = tmdb_client
         self.include_future = include_future
         self.min_collection_size = min_collection_size
+        self.min_owned = min_owned
         self.excluded_collections = {c.lower() for c in (excluded_collections or [])}
         self._progress = progress_callback or (lambda *args: None)
 
@@ -175,6 +179,11 @@ class MovieGapFinder:
 
             if not missing_ids:
                 # Collection is complete
+                continue
+
+            # Skip collections where user doesn't own enough movies
+            # (prevents noise from single-movie matches)
+            if len(owned_in_collection) < self.min_owned:
                 continue
 
             # Build missing movie list

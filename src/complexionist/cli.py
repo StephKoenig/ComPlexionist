@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import json
 import sys
+from datetime import date
+from pathlib import Path
 from typing import TYPE_CHECKING
 
 import click
@@ -30,6 +32,73 @@ load_dotenv()
 console = Console()
 
 
+def _list_libraries(libraries: list, lib_type: str) -> None:
+    """Display available libraries as a table.
+
+    Args:
+        libraries: List of PlexLibrary objects.
+        lib_type: Type description (e.g., "movie", "TV").
+    """
+    console.print(f"[bold]Available {lib_type} libraries:[/bold]")
+    console.print()
+
+    table = Table(show_header=True, header_style="bold", box=None, padding=(0, 2))
+    table.add_column("#", style="dim", justify="right")
+    table.add_column("Name", style="white")
+    table.add_column("Type", style="dim")
+
+    for i, lib in enumerate(libraries, 1):
+        table.add_row(str(i), lib.title, lib.type)
+
+    console.print(table)
+    console.print()
+    console.print("[dim]Use --library to specify which library to scan.[/dim]")
+    console.print('[dim]Example: complexionist movies --library "Movies"[/dim]')
+
+
+def _resolve_libraries(
+    plex_client,
+    requested: tuple[str, ...],
+    get_libraries_fn,
+    lib_type: str,
+) -> list[str] | None:
+    """Resolve library names from user input.
+
+    Args:
+        plex_client: PlexClient instance.
+        requested: Tuple of requested library names (can be empty).
+        get_libraries_fn: Function to get available libraries (e.g., plex.get_movie_libraries).
+        lib_type: Type description for error messages (e.g., "movie", "TV").
+
+    Returns:
+        List of library names to scan, or None if should exit (listed libraries).
+    """
+    available = get_libraries_fn()
+
+    if not available:
+        console.print(f"[yellow]No {lib_type} libraries found on this Plex server.[/yellow]")
+        return None
+
+    # If no library specified, list available and exit
+    if not requested:
+        _list_libraries(available, lib_type)
+        return None
+
+    # Validate requested libraries
+    available_names = {lib.title for lib in available}
+    library_names = []
+
+    for name in requested:
+        if name not in available_names:
+            console.print(f"[red]Library not found:[/red] {name}")
+            console.print()
+            _list_libraries(available, lib_type)
+            return None
+        library_names.append(name)
+
+    return library_names
+
+
 @click.group()
 @click.version_option(version=__version__, prog_name="complexionist")
 @click.option("-v", "--verbose", is_flag=True, help="Enable verbose output")
@@ -43,8 +112,12 @@ def main(ctx: click.Context, verbose: bool, quiet: bool) -> None:
 
 
 @main.command()
-@click.option("--library", "-l", default=None, help="Movie library name (default: auto-detect)")
-@click.option("--no-cache", is_flag=True, help="Bypass cache and fetch fresh data")
+@click.option(
+    "--library",
+    "-l",
+    multiple=True,
+    help="Movie library name(s) to scan (can specify multiple)",
+)
 @click.option("--include-future", is_flag=True, help="Include unreleased movies")
 @click.option(
     "--min-collection-size",
@@ -53,26 +126,54 @@ def main(ctx: click.Context, verbose: bool, quiet: bool) -> None:
     help="Minimum collection size to report (default: from config or 2)",
 )
 @click.option(
+    "--min-owned",
+    type=int,
+    default=None,
+    help="Minimum owned movies to report collection gaps (default: from config or 2)",
+)
+@click.option(
     "--format",
     "-f",
     type=click.Choice(["text", "json", "csv"]),
     default="text",
     help="Output format",
 )
+@click.option(
+    "--no-csv",
+    is_flag=True,
+    help="Disable automatic CSV file output",
+)
+@click.option(
+    "--dry-run",
+    is_flag=True,
+    help="Validate configuration without running scan",
+)
 @click.pass_context
 def movies(
     ctx: click.Context,
-    library: str | None,
-    no_cache: bool,
+    library: tuple[str, ...],
     include_future: bool,
     min_collection_size: int | None,
+    min_owned: int | None,
     format: str,
+    no_csv: bool,
+    dry_run: bool,
 ) -> None:
-    """Find missing movies from collections in your Plex library."""
+    """Find missing movies from collections in your Plex library.
+
+    If no --library is specified, lists available movie libraries.
+    """
     from complexionist.cache import Cache
     from complexionist.gaps import MovieGapFinder
     from complexionist.plex import PlexClient, PlexError
     from complexionist.tmdb import TMDBClient, TMDBError
+
+    # Handle dry-run mode
+    if dry_run:
+        from complexionist.validation import validate_config
+
+        validate_config()
+        return
 
     verbose = ctx.obj.get("verbose", False)
     quiet = ctx.obj.get("quiet", False)
@@ -81,9 +182,11 @@ def movies(
     # Use CLI option or config default
     if min_collection_size is None:
         min_collection_size = cfg.options.min_collection_size
+    if min_owned is None:
+        min_owned = cfg.options.min_owned
 
-    # Create cache (disabled if --no-cache)
-    cache = Cache(enabled=not no_cache)
+    # Create cache
+    cache = Cache()
 
     # Progress tracking state
     progress_task = None
@@ -95,81 +198,83 @@ def movies(
             progress_ctx.update(progress_task, description=stage, completed=current, total=total)
 
     try:
-        if quiet:
-            # Quiet mode: no progress indicators
-            try:
-                plex = PlexClient()
-                plex.connect()
-            except PlexError as e:
-                console.print(f"[red]Plex error:[/red] {e}")
-                sys.exit(1)
+        # Connect to Plex first (needed to resolve libraries)
+        try:
+            plex = PlexClient()
+            plex.connect()
+        except PlexError as e:
+            console.print(f"[red]Plex error:[/red] {e}")
+            sys.exit(1)
 
-            try:
-                tmdb = TMDBClient(cache=cache)
-                tmdb.test_connection()
-            except TMDBError as e:
-                console.print(f"[red]TMDB error:[/red] {e}")
-                sys.exit(1)
+        # Resolve library names
+        library_names = _resolve_libraries(
+            plex, library, plex.get_movie_libraries, "movie"
+        )
+        if library_names is None:
+            # Either listed libraries or no libraries found
+            return
 
-            finder = MovieGapFinder(
-                plex_client=plex,
-                tmdb_client=tmdb,
-                include_future=include_future,
-                min_collection_size=min_collection_size,
-                excluded_collections=cfg.exclusions.collections,
-            )
-            report = finder.find_gaps(library)
-        else:
-            # Normal mode with progress
-            with Progress(
-                SpinnerColumn(),
-                TextColumn("[progress.description]{task.description}"),
-                BarColumn(),
-                TaskProgressColumn(),
-                console=console,
-                transient=True,
-            ) as progress:
-                progress_ctx = progress
-                progress_task = progress.add_task("Connecting to Plex...", total=None)
+        # Connect to TMDB
+        try:
+            tmdb = TMDBClient(cache=cache)
+            tmdb.test_connection()
+        except TMDBError as e:
+            console.print(f"[red]TMDB error:[/red] {e}")
+            sys.exit(1)
 
-                try:
-                    plex = PlexClient()
-                    plex.connect()
-                except PlexError as e:
-                    console.print(f"[red]Plex error:[/red] {e}")
-                    sys.exit(1)
+        # Scan each library
+        for lib_name in library_names:
+            if len(library_names) > 1:
+                console.print(f"\n[bold blue]Scanning library: {lib_name}[/bold blue]")
 
-                progress.update(progress_task, description=f"Connected to {plex.server_name}")
-
-                # Connect to TMDB
-                progress.update(progress_task, description="Connecting to TMDB...")
-                try:
-                    tmdb = TMDBClient(cache=cache)
-                    tmdb.test_connection()
-                except TMDBError as e:
-                    console.print(f"[red]TMDB error:[/red] {e}")
-                    sys.exit(1)
-
-                # Find gaps
+            if quiet:
+                # Quiet mode: no progress indicators
                 finder = MovieGapFinder(
                     plex_client=plex,
                     tmdb_client=tmdb,
                     include_future=include_future,
                     min_collection_size=min_collection_size,
+                    min_owned=min_owned,
                     excluded_collections=cfg.exclusions.collections,
-                    progress_callback=progress_callback,
                 )
+                report = finder.find_gaps(lib_name)
+            else:
+                # Normal mode with progress
+                with Progress(
+                    SpinnerColumn(),
+                    TextColumn("[progress.description]{task.description}"),
+                    BarColumn(),
+                    TaskProgressColumn(),
+                    console=console,
+                    transient=False,
+                ) as progress:
+                    progress_ctx = progress
+                    progress_task = progress.add_task("Scanning...", total=None)
 
-                progress.update(progress_task, description="Scanning...", total=1, completed=0)
-                report = finder.find_gaps(library)
+                    # Find gaps
+                    finder = MovieGapFinder(
+                        plex_client=plex,
+                        tmdb_client=tmdb,
+                        include_future=include_future,
+                        min_collection_size=min_collection_size,
+                        min_owned=min_owned,
+                        excluded_collections=cfg.exclusions.collections,
+                        progress_callback=progress_callback,
+                    )
 
-        # Output results
-        if format == "json":
-            _output_movies_json(report)
-        elif format == "csv":
-            _output_movies_csv(report)
-        else:
-            _output_movies_text(report, verbose)
+                    report = finder.find_gaps(lib_name)
+
+            # Output results
+            if format == "json":
+                _output_movies_json(report)
+            elif format == "csv":
+                _output_movies_csv(report)
+            else:
+                _output_movies_text(report, verbose)
+                # Auto-save CSV unless --no-csv
+                if not no_csv and report.collections_with_gaps:
+                    csv_path = _save_movies_csv(report)
+                    console.print(f"\n[dim]CSV saved to:[/dim] {csv_path}")
 
     except KeyboardInterrupt:
         console.print("\n[yellow]Scan cancelled.[/yellow]")
@@ -269,6 +374,43 @@ def _output_movies_csv(report: MovieGapReport) -> None:
             )
 
     console.print(output.getvalue())
+
+
+def _save_movies_csv(report: MovieGapReport) -> Path:
+    """Save movie gap report as CSV file.
+
+    Args:
+        report: Movie gap report to save.
+
+    Returns:
+        Path to saved CSV file.
+    """
+    import csv
+
+    # Create filename: {LibraryName}_movie_gaps_{YYYY-MM-DD}.csv
+    # Sanitize library name for use in filename
+    safe_name = "".join(c if c.isalnum() or c in " -_" else "_" for c in report.library_name)
+    safe_name = safe_name.replace(" ", "_")
+    filename = f"{safe_name}_movie_gaps_{date.today().isoformat()}.csv"
+    filepath = Path.cwd() / filename
+
+    with open(filepath, "w", newline="", encoding="utf-8") as f:
+        writer = csv.writer(f)
+        writer.writerow(["Collection", "Movie Title", "Year", "TMDB ID", "Release Date"])
+
+        for gap in report.collections_with_gaps:
+            for movie in gap.missing_movies:
+                writer.writerow(
+                    [
+                        gap.collection_name,
+                        movie.title,
+                        movie.year or "",
+                        movie.tmdb_id,
+                        movie.release_date.isoformat() if movie.release_date else "",
+                    ]
+                )
+
+    return filepath
 
 
 def _output_episodes_text(report: EpisodeGapReport, verbose: bool) -> None:
@@ -381,8 +523,12 @@ def _output_episodes_csv(report: EpisodeGapReport) -> None:
 
 
 @main.command()
-@click.option("--library", "-l", default=None, help="TV library name (default: auto-detect)")
-@click.option("--no-cache", is_flag=True, help="Bypass cache and fetch fresh data")
+@click.option(
+    "--library",
+    "-l",
+    multiple=True,
+    help="TV library name(s) to scan (can specify multiple)",
+)
 @click.option("--include-future", is_flag=True, help="Include unaired episodes")
 @click.option("--include-specials", is_flag=True, help="Include Season 0 (specials)")
 @click.option(
@@ -403,22 +549,43 @@ def _output_episodes_csv(report: EpisodeGapReport) -> None:
     default="text",
     help="Output format",
 )
+@click.option(
+    "--no-csv",
+    is_flag=True,
+    help="Disable automatic CSV file output",
+)
+@click.option(
+    "--dry-run",
+    is_flag=True,
+    help="Validate configuration without running scan",
+)
 @click.pass_context
 def episodes(
     ctx: click.Context,
-    library: str | None,
-    no_cache: bool,
+    library: tuple[str, ...],
     include_future: bool,
     include_specials: bool,
     recent_threshold: int | None,
     exclude_show: tuple[str, ...],
     format: str,
+    no_csv: bool,
+    dry_run: bool,
 ) -> None:
-    """Find missing episodes from TV shows in your Plex library."""
+    """Find missing episodes from TV shows in your Plex library.
+
+    If no --library is specified, lists available TV libraries.
+    """
     from complexionist.cache import Cache
     from complexionist.gaps import EpisodeGapFinder
     from complexionist.plex import PlexClient, PlexError
     from complexionist.tvdb import TVDBClient, TVDBError
+
+    # Handle dry-run mode
+    if dry_run:
+        from complexionist.validation import validate_config
+
+        validate_config()
+        return
 
     verbose = ctx.obj.get("verbose", False)
     quiet = ctx.obj.get("quiet", False)
@@ -431,8 +598,8 @@ def episodes(
     # Combine CLI exclusions with config exclusions
     excluded_shows = list(exclude_show) + cfg.exclusions.shows
 
-    # Create cache (disabled if --no-cache)
-    cache = Cache(enabled=not no_cache)
+    # Create cache
+    cache = Cache()
 
     # Progress tracking state
     progress_task = None
@@ -444,63 +611,37 @@ def episodes(
             progress_ctx.update(progress_task, description=stage, completed=current, total=total)
 
     try:
-        if quiet:
-            # Quiet mode: no progress indicators
-            try:
-                plex = PlexClient()
-                plex.connect()
-            except PlexError as e:
-                console.print(f"[red]Plex error:[/red] {e}")
-                sys.exit(1)
+        # Connect to Plex first (needed to resolve libraries)
+        try:
+            plex = PlexClient()
+            plex.connect()
+        except PlexError as e:
+            console.print(f"[red]Plex error:[/red] {e}")
+            sys.exit(1)
 
-            try:
-                tvdb = TVDBClient(cache=cache)
-                tvdb.test_connection()
-            except TVDBError as e:
-                console.print(f"[red]TVDB error:[/red] {e}")
-                sys.exit(1)
+        # Resolve library names
+        library_names = _resolve_libraries(
+            plex, library, plex.get_tv_libraries, "TV"
+        )
+        if library_names is None:
+            # Either listed libraries or no libraries found
+            return
 
-            finder = EpisodeGapFinder(
-                plex_client=plex,
-                tvdb_client=tvdb,
-                include_future=include_future,
-                include_specials=include_specials,
-                recent_threshold_hours=recent_threshold,
-                excluded_shows=excluded_shows,
-            )
-            report = finder.find_gaps(library)
-        else:
-            # Normal mode with progress
-            with Progress(
-                SpinnerColumn(),
-                TextColumn("[progress.description]{task.description}"),
-                BarColumn(),
-                TaskProgressColumn(),
-                console=console,
-                transient=True,
-            ) as progress:
-                progress_ctx = progress
-                progress_task = progress.add_task("Connecting to Plex...", total=None)
+        # Connect to TVDB
+        try:
+            tvdb = TVDBClient(cache=cache)
+            tvdb.test_connection()
+        except TVDBError as e:
+            console.print(f"[red]TVDB error:[/red] {e}")
+            sys.exit(1)
 
-                try:
-                    plex = PlexClient()
-                    plex.connect()
-                except PlexError as e:
-                    console.print(f"[red]Plex error:[/red] {e}")
-                    sys.exit(1)
+        # Scan each library
+        for lib_name in library_names:
+            if len(library_names) > 1:
+                console.print(f"\n[bold blue]Scanning library: {lib_name}[/bold blue]")
 
-                progress.update(progress_task, description=f"Connected to {plex.server_name}")
-
-                # Connect to TVDB
-                progress.update(progress_task, description="Connecting to TVDB...")
-                try:
-                    tvdb = TVDBClient(cache=cache)
-                    tvdb.test_connection()
-                except TVDBError as e:
-                    console.print(f"[red]TVDB error:[/red] {e}")
-                    sys.exit(1)
-
-                # Find gaps
+            if quiet:
+                # Quiet mode: no progress indicators
                 finder = EpisodeGapFinder(
                     plex_client=plex,
                     tvdb_client=tvdb,
@@ -508,27 +649,96 @@ def episodes(
                     include_specials=include_specials,
                     recent_threshold_hours=recent_threshold,
                     excluded_shows=excluded_shows,
-                    progress_callback=progress_callback,
                 )
+                report = finder.find_gaps(lib_name)
+            else:
+                # Normal mode with progress
+                with Progress(
+                    SpinnerColumn(),
+                    TextColumn("[progress.description]{task.description}"),
+                    BarColumn(),
+                    TaskProgressColumn(),
+                    console=console,
+                    transient=False,
+                ) as progress:
+                    progress_ctx = progress
+                    progress_task = progress.add_task("Scanning...", total=None)
 
-                progress.update(progress_task, description="Scanning...", total=1, completed=0)
-                report = finder.find_gaps(library)
+                    # Find gaps
+                    finder = EpisodeGapFinder(
+                        plex_client=plex,
+                        tvdb_client=tvdb,
+                        include_future=include_future,
+                        include_specials=include_specials,
+                        recent_threshold_hours=recent_threshold,
+                        excluded_shows=excluded_shows,
+                        progress_callback=progress_callback,
+                    )
 
-        # Output results
-        if format == "json":
-            _output_episodes_json(report)
-        elif format == "csv":
-            _output_episodes_csv(report)
-        else:
-            _output_episodes_text(report, verbose)
+                    report = finder.find_gaps(lib_name)
+
+            # Output results
+            if format == "json":
+                _output_episodes_json(report)
+            elif format == "csv":
+                _output_episodes_csv(report)
+            else:
+                _output_episodes_text(report, verbose)
+                # Auto-save CSV unless --no-csv
+                if not no_csv and report.shows_with_gaps:
+                    csv_path = _save_episodes_csv(report)
+                    console.print(f"\n[dim]CSV saved to:[/dim] {csv_path}")
 
     except KeyboardInterrupt:
         console.print("\n[yellow]Scan cancelled.[/yellow]")
         sys.exit(130)
 
 
+def _save_episodes_csv(report: EpisodeGapReport) -> Path:
+    """Save episode gap report as CSV file.
+
+    Args:
+        report: Episode gap report to save.
+
+    Returns:
+        Path to saved CSV file.
+    """
+    import csv
+
+    # Create filename: {LibraryName}_episode_gaps_{YYYY-MM-DD}.csv
+    safe_name = "".join(c if c.isalnum() or c in " -_" else "_" for c in report.library_name)
+    safe_name = safe_name.replace(" ", "_")
+    filename = f"{safe_name}_episode_gaps_{date.today().isoformat()}.csv"
+    filepath = Path.cwd() / filename
+
+    with open(filepath, "w", newline="", encoding="utf-8") as f:
+        writer = csv.writer(f)
+        writer.writerow(["Show", "Season", "Episode", "Title", "TVDB ID", "Aired"])
+
+        for show in report.shows_with_gaps:
+            for season in show.seasons:
+                for ep in season.missing_episodes:
+                    writer.writerow(
+                        [
+                            show.show_title,
+                            season.season_number,
+                            ep.episode_code,
+                            ep.title or "",
+                            ep.tvdb_id,
+                            ep.aired.isoformat() if ep.aired else "",
+                        ]
+                    )
+
+    return filepath
+
+
 @main.command()
-@click.option("--no-cache", is_flag=True, help="Bypass cache and fetch fresh data")
+@click.option(
+    "--library",
+    "-l",
+    multiple=True,
+    help="Library name(s) to scan (can specify multiple)",
+)
 @click.option("--include-future", is_flag=True, help="Include unreleased content")
 @click.option(
     "--format",
@@ -540,24 +750,32 @@ def episodes(
 @click.pass_context
 def scan(
     ctx: click.Context,
-    no_cache: bool,
+    library: tuple[str, ...],
     include_future: bool,
     format: str,
 ) -> None:
-    """Scan both movie and TV libraries for missing content."""
+    """Scan both movie and TV libraries for missing content.
+
+    If no --library is specified, lists available libraries for each type.
+    """
     console.print("[bold blue]ComPlexionist Scan[/bold blue]")
     console.print()
 
     # Invoke movies command
     console.print("[bold]Movie Collections[/bold]")
-    ctx.invoke(movies, no_cache=no_cache, include_future=include_future, format=format)
+    ctx.invoke(
+        movies,
+        library=library,
+        include_future=include_future,
+        format=format,
+    )
     console.print()
 
     # Invoke episodes command
     console.print("[bold]TV Episodes[/bold]")
     ctx.invoke(
         episodes,
-        no_cache=no_cache,
+        library=library,
         include_future=include_future,
         include_specials=False,
         format=format,
@@ -601,6 +819,7 @@ def config_show() -> None:
     console.print(f"  Exclude specials: {cfg.options.exclude_specials}")
     console.print(f"  Recent threshold: {cfg.options.recent_threshold_hours} hours")
     console.print(f"  Min collection size: {cfg.options.min_collection_size}")
+    console.print(f"  Min owned: {cfg.options.min_owned}")
     console.print()
 
     # Exclusions
@@ -645,10 +864,13 @@ def config_path() -> None:
 @config.command(name="init")
 @click.option("--force", is_flag=True, help="Overwrite existing config file")
 def config_init(force: bool) -> None:
-    """Create a default configuration file."""
-    from complexionist.config import get_config_dir, save_default_config
+    """Create a default configuration file (INI format)."""
+    from pathlib import Path
 
-    config_path = get_config_dir() / "config.yaml"
+    from complexionist.config import save_default_config
+
+    # Save in current directory for portability
+    config_path = Path.cwd() / "complexionist.cfg"
 
     if config_path.exists() and not force:
         console.print(f"[yellow]Config file already exists:[/yellow] {config_path}")
@@ -657,7 +879,25 @@ def config_init(force: bool) -> None:
 
     save_default_config(config_path)
     console.print(f"[green]Created config file:[/green] {config_path}")
-    console.print("Edit this file to customize your settings.")
+    console.print("Edit this file to add your API keys and customize settings.")
+
+
+@config.command(name="validate")
+def config_validate() -> None:
+    """Validate configuration by testing service connections."""
+    from complexionist.validation import validate_config
+
+    success = validate_config()
+    sys.exit(0 if success else 1)
+
+
+@config.command(name="setup")
+def config_setup() -> None:
+    """Run the interactive setup wizard."""
+    from complexionist.setup import run_setup_wizard
+
+    result = run_setup_wizard()
+    sys.exit(0 if result else 1)
 
 
 @main.group()
@@ -722,6 +962,27 @@ def cache_stats() -> None:
 
     console.print()
     console.print(f"Cache location: {cache.cache_dir}")
+
+
+@cache.command(name="refresh")
+@click.confirmation_option(
+    prompt="This will clear all cached data and fingerprints. Continue?"
+)
+def cache_refresh() -> None:
+    """Force refresh - clear all cache and library fingerprints.
+
+    Use this when you want to ensure fresh data is fetched on the next scan.
+    """
+    from complexionist.cache import Cache
+
+    cache = Cache()
+    count = cache.refresh()
+
+    if count == 0:
+        console.print("[dim]Cache was already empty.[/dim]")
+    else:
+        console.print(f"[green]Refreshed cache - cleared {count} entries.[/green]")
+    console.print("[dim]Library fingerprints have been reset.[/dim]")
 
 
 if __name__ == "__main__":

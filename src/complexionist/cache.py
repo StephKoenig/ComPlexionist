@@ -1,7 +1,8 @@
 """File-based caching for API responses.
 
-Cache structure:
-    ~/.complexionist/cache/
+Cache structure (stored next to config file):
+    {config_dir}/cache/
+    ├── fingerprints.json     # Library fingerprints for invalidation
     ├── tmdb/
     │   ├── movies/
     │   │   └── {movie_id}.json
@@ -21,15 +22,30 @@ Each JSON file contains:
         },
         "data": { ... actual cached data ... }
     }
+
+Fingerprints file tracks library state for cache invalidation:
+    {
+        "libraries": {
+            "Movies": {
+                "item_count": 542,
+                "id_hash": "abc123...",
+                "computed_at": "2025-01-25T10:00:00Z"
+            }
+        }
+    }
 """
 
 from __future__ import annotations
 
+import hashlib
 import json
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
+
+if TYPE_CHECKING:
+    from complexionist.plex import PlexMovie, PlexShow
 
 # Default TTLs in hours
 TMDB_MOVIE_TTL_HOURS = 168  # 7 days
@@ -63,11 +79,77 @@ class CacheStats:
 def get_cache_dir() -> Path:
     """Get the cache directory.
 
+    Cache is stored next to the config file for portability.
+    Falls back to ~/.complexionist/cache if no config is loaded.
+
     Returns:
-        Path to cache directory (~/.complexionist/cache).
+        Path to cache directory.
     """
-    cache_dir = Path.home() / ".complexionist" / "cache"
-    return cache_dir
+    from complexionist.config import get_config_path, get_exe_directory
+
+    # Try to use config file location
+    config_path = get_config_path()
+    if config_path is not None:
+        return config_path.parent / "cache"
+
+    # Fall back to exe directory
+    return get_exe_directory() / "cache"
+
+
+@dataclass
+class LibraryFingerprint:
+    """Fingerprint of a Plex library for cache invalidation."""
+
+    item_count: int
+    id_hash: str
+    computed_at: datetime = field(default_factory=lambda: datetime.now(UTC))
+
+    def matches(self, other: LibraryFingerprint) -> bool:
+        """Check if this fingerprint matches another."""
+        return self.item_count == other.item_count and self.id_hash == other.id_hash
+
+    def to_dict(self) -> dict[str, Any]:
+        """Convert to dictionary for JSON serialization."""
+        return {
+            "item_count": self.item_count,
+            "id_hash": self.id_hash,
+            "computed_at": self.computed_at.isoformat(),
+        }
+
+    @classmethod
+    def from_dict(cls, data: dict[str, Any]) -> LibraryFingerprint:
+        """Create from dictionary."""
+        return cls(
+            item_count=data["item_count"],
+            id_hash=data["id_hash"],
+            computed_at=datetime.fromisoformat(data["computed_at"]),
+        )
+
+
+def compute_fingerprint(
+    items: list[PlexMovie] | list[PlexShow],
+) -> LibraryFingerprint:
+    """Compute a fingerprint for a list of Plex items.
+
+    The fingerprint consists of:
+    - Item count
+    - MD5 hash of sorted rating keys
+
+    Args:
+        items: List of PlexMovie or PlexShow objects.
+
+    Returns:
+        LibraryFingerprint for the items.
+    """
+    # Sort by rating_key for consistent hashing
+    rating_keys = sorted(str(item.rating_key) for item in items)
+    id_string = ",".join(rating_keys)
+    id_hash = hashlib.md5(id_string.encode()).hexdigest()
+
+    return LibraryFingerprint(
+        item_count=len(items),
+        id_hash=id_hash,
+    )
 
 
 class Cache:
@@ -381,3 +463,112 @@ class Cache:
 
         self._cleanup_empty_dirs()
         return count
+
+    # =========================================================================
+    # Fingerprint Management
+    # =========================================================================
+
+    def _get_fingerprints_path(self) -> Path:
+        """Get the path to the fingerprints file."""
+        return self.cache_dir / "fingerprints.json"
+
+    def _load_fingerprints(self) -> dict[str, dict[str, Any]]:
+        """Load all fingerprints from disk."""
+        path = self._get_fingerprints_path()
+        if not path.exists():
+            return {"libraries": {}}
+
+        try:
+            with open(path, encoding="utf-8") as f:
+                return json.load(f)
+        except (json.JSONDecodeError, OSError):
+            return {"libraries": {}}
+
+    def _save_fingerprints(self, data: dict[str, dict[str, Any]]) -> None:
+        """Save fingerprints to disk."""
+        path = self._get_fingerprints_path()
+        path.parent.mkdir(parents=True, exist_ok=True)
+
+        with open(path, "w", encoding="utf-8") as f:
+            json.dump(data, f, indent=2)
+
+    def get_library_fingerprint(self, library_name: str) -> LibraryFingerprint | None:
+        """Get the stored fingerprint for a library.
+
+        Args:
+            library_name: Name of the Plex library.
+
+        Returns:
+            Stored fingerprint, or None if not found.
+        """
+        data = self._load_fingerprints()
+        lib_data = data.get("libraries", {}).get(library_name)
+        if lib_data:
+            return LibraryFingerprint.from_dict(lib_data)
+        return None
+
+    def set_library_fingerprint(
+        self, library_name: str, fingerprint: LibraryFingerprint
+    ) -> None:
+        """Store the fingerprint for a library.
+
+        Args:
+            library_name: Name of the Plex library.
+            fingerprint: Fingerprint to store.
+        """
+        data = self._load_fingerprints()
+        if "libraries" not in data:
+            data["libraries"] = {}
+        data["libraries"][library_name] = fingerprint.to_dict()
+        self._save_fingerprints(data)
+
+    def check_fingerprint(
+        self, library_name: str, current_fingerprint: LibraryFingerprint
+    ) -> bool:
+        """Check if the library fingerprint matches the stored one.
+
+        Args:
+            library_name: Name of the Plex library.
+            current_fingerprint: Current fingerprint computed from library items.
+
+        Returns:
+            True if fingerprints match (cache is valid), False otherwise.
+        """
+        stored = self.get_library_fingerprint(library_name)
+        if stored is None:
+            return False
+        return stored.matches(current_fingerprint)
+
+    def invalidate_library(self, library_name: str) -> int:
+        """Invalidate the cache for a specific library.
+
+        Removes the stored fingerprint and clears related cache entries.
+
+        Args:
+            library_name: Name of the library to invalidate.
+
+        Returns:
+            Number of cache entries cleared.
+        """
+        # Remove fingerprint
+        data = self._load_fingerprints()
+        if library_name in data.get("libraries", {}):
+            del data["libraries"][library_name]
+            self._save_fingerprints(data)
+
+        # Clear cache (for now, clear all - in future could be library-specific)
+        return self.clear()
+
+    def refresh(self) -> int:
+        """Force refresh - clear all cache and fingerprints.
+
+        Returns:
+            Number of cache entries cleared.
+        """
+        # Clear fingerprints
+        path = self._get_fingerprints_path()
+        if path.exists():
+            path.unlink()
+
+        # Clear all cache
+        return self.clear()
