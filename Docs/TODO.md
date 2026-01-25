@@ -105,6 +105,10 @@ Based on initial release feedback:
 - [ ] CSV auto-saved to working directory (e.g., `movies_gaps_2026-01-25.csv`)
 - [ ] Add `--no-csv` flag to disable automatic CSV
 
+**Collection Filtering**
+- [ ] Default minimum owned movies per collection = 2 (only report gaps for collections where user owns 2+ movies)
+- [ ] Add `--min-owned` flag to override (e.g., `--min-owned 1` to show all)
+
 **Configuration**
 - [ ] Switch from `.env` to `complexionist.cfg` (more user-friendly)
 - [ ] Support both formats during transition
