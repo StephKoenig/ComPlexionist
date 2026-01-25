@@ -169,7 +169,9 @@ def _prompt_and_test_plex() -> tuple[str, str]:
             console.print(f"[red]{message}[/red]")
             if not Confirm.ask("Try again?", default=True):
                 # Allow skipping validation but warn
-                console.print("[yellow]Skipping validation - you can fix this in the config file later.[/yellow]")
+                console.print(
+                    "[yellow]Skipping validation - you can fix this in the config file later.[/yellow]"
+                )
                 return plex_url, plex_token
 
 
@@ -193,7 +195,9 @@ def _prompt_and_test_tmdb() -> str:
         else:
             console.print(f"[red]{message}[/red]")
             if not Confirm.ask("Try again?", default=True):
-                console.print("[yellow]Skipping validation - you can fix this in the config file later.[/yellow]")
+                console.print(
+                    "[yellow]Skipping validation - you can fix this in the config file later.[/yellow]"
+                )
                 return api_key
 
 
@@ -217,7 +221,9 @@ def _prompt_and_test_tvdb() -> str:
         else:
             console.print(f"[red]{message}[/red]")
             if not Confirm.ask("Try again?", default=True):
-                console.print("[yellow]Skipping validation - you can fix this in the config file later.[/yellow]")
+                console.print(
+                    "[yellow]Skipping validation - you can fix this in the config file later.[/yellow]"
+                )
                 return api_key
 
 
@@ -271,17 +277,13 @@ def run_setup_wizard() -> Path | None:
 
     # TMDB configuration
     console.print("[bold]2. TMDB API Key[/bold]")
-    console.print(
-        "[dim]Get your free API key: https://www.themoviedb.org/settings/api[/dim]"
-    )
+    console.print("[dim]Get your free API key: https://www.themoviedb.org/settings/api[/dim]")
     tmdb_api_key = _prompt_and_test_tmdb()
     console.print()
 
     # TVDB configuration
     console.print("[bold]3. TVDB API Key[/bold]")
-    console.print(
-        "[dim]Get your API key: https://thetvdb.com/api-information[/dim]"
-    )
+    console.print("[dim]Get your API key: https://thetvdb.com/api-information[/dim]")
     tvdb_api_key = _prompt_and_test_tvdb()
     console.print()
 
@@ -341,6 +343,8 @@ def check_first_run() -> bool:
         return result is not None
 
     console.print()
-    console.print("[dim]You can run 'complexionist config init' later to create a config file.[/dim]")
+    console.print(
+        "[dim]You can run 'complexionist config init' later to create a config file.[/dim]"
+    )
     console.print()
     return False

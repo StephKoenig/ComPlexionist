@@ -73,7 +73,9 @@ def _show_movie_summary(
         score_color = "yellow"
     else:
         score_color = "red"
-    console.print(f"[bold]Library Score:[/bold] [{score_color}]{score:.1f}%[/{score_color}] complete")
+    console.print(
+        f"[bold]Library Score:[/bold] [{score_color}]{score:.1f}%[/{score_color}] complete"
+    )
     console.print()
 
     # Stats
@@ -144,7 +146,9 @@ def _show_tv_summary(
         score_color = "yellow"
     else:
         score_color = "red"
-    console.print(f"[bold]Library Score:[/bold] [{score_color}]{score:.1f}%[/{score_color}] complete")
+    console.print(
+        f"[bold]Library Score:[/bold] [{score_color}]{score:.1f}%[/{score_color}] complete"
+    )
     console.print()
 
     # Stats
@@ -224,7 +228,9 @@ def _show_help_hints() -> None:
     """Display helpful hints for getting started."""
     console.print()
     console.print("[bold]Quick Start:[/bold]")
-    console.print(f"  [{PLEX_YELLOW}]complexionist movies[/]     Find missing movies in collections")
+    console.print(
+        f"  [{PLEX_YELLOW}]complexionist movies[/]     Find missing movies in collections"
+    )
     console.print(f"  [{PLEX_YELLOW}]complexionist tv[/]         Find missing TV episodes")
     console.print(f"  [{PLEX_YELLOW}]complexionist scan[/]       Scan both libraries")
     console.print()
@@ -248,12 +254,7 @@ def _has_valid_config() -> bool:
         return False
 
     cfg = get_config()
-    return bool(
-        cfg.plex.url
-        and cfg.plex.token
-        and cfg.tmdb.api_key
-        and cfg.tvdb.api_key
-    )
+    return bool(cfg.plex.url and cfg.plex.token and cfg.tmdb.api_key and cfg.tvdb.api_key)
 
 
 def _run_interactive_start(ctx: click.Context) -> None:
@@ -639,9 +640,7 @@ def movies(
             sys.exit(1)
 
         # Resolve library names
-        library_names = _resolve_libraries(
-            plex, library, plex.get_movie_libraries, "movie"
-        )
+        library_names = _resolve_libraries(plex, library, plex.get_movie_libraries, "movie")
         if library_names is None:
             # Either listed libraries or no libraries found
             return
@@ -1073,9 +1072,7 @@ def tv(
             sys.exit(1)
 
         # Resolve library names
-        library_names = _resolve_libraries(
-            plex, library, plex.get_tv_libraries, "TV"
-        )
+        library_names = _resolve_libraries(plex, library, plex.get_tv_libraries, "TV")
         if library_names is None:
             # Either listed libraries or no libraries found
             return
@@ -1435,9 +1432,7 @@ def cache_stats() -> None:
 
 
 @cache.command(name="refresh")
-@click.confirmation_option(
-    prompt="This will clear all cached data and fingerprints. Continue?"
-)
+@click.confirmation_option(prompt="This will clear all cached data and fingerprints. Continue?")
 def cache_refresh() -> None:
     """Force refresh - clear all cache and library fingerprints.
 

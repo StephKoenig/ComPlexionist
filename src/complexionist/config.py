@@ -252,9 +252,7 @@ def _load_ini_config(path: Path) -> dict[str, Any]:
         if parser.has_option("exclusions", "shows"):
             exclusions["shows"] = _parse_list(parser.get("exclusions", "shows"))
         if parser.has_option("exclusions", "collections"):
-            exclusions["collections"] = _parse_list(
-                parser.get("exclusions", "collections")
-            )
+            exclusions["collections"] = _parse_list(parser.get("exclusions", "collections"))
         if exclusions:
             config["exclusions"] = exclusions
 

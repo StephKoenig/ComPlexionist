@@ -68,14 +68,10 @@ class PlexClient:
         self.token = token
 
         if not self.url:
-            raise PlexAuthError(
-                "Plex server URL not provided. Configure url in complexionist.ini."
-            )
+            raise PlexAuthError("Plex server URL not provided. Configure url in complexionist.ini.")
 
         if not self.token:
-            raise PlexAuthError(
-                "Plex token not provided. Configure token in complexionist.ini."
-            )
+            raise PlexAuthError("Plex token not provided. Configure token in complexionist.ini.")
 
         # Normalize URL
         self.url = self._normalize_url(self.url)

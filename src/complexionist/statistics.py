@@ -190,17 +190,13 @@ class ScanStatistics:
             for phase in self.phases:
                 duration_str = self._format_duration(phase.duration)
                 if phase.item_count > 0:
-                    console.print(
-                        f"  {phase.name}: {phase.item_count} items ({duration_str})"
-                    )
+                    console.print(f"  {phase.name}: {phase.item_count} items ({duration_str})")
                 else:
                     console.print(f"  {phase.name}: {duration_str}")
 
         # Total duration
         console.print()
-        console.print(
-            f"[bold]Total time:[/bold] {self._format_duration(self.total_duration)}"
-        )
+        console.print(f"[bold]Total time:[/bold] {self._format_duration(self.total_duration)}")
 
         # API calls
         if self.total_api_calls > 0:

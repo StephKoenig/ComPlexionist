@@ -526,9 +526,7 @@ class Cache:
             return LibraryFingerprint.from_dict(lib_data)
         return None
 
-    def set_library_fingerprint(
-        self, library_name: str, fingerprint: LibraryFingerprint
-    ) -> None:
+    def set_library_fingerprint(self, library_name: str, fingerprint: LibraryFingerprint) -> None:
         """Store the fingerprint for a library.
 
         Args:
@@ -539,9 +537,7 @@ class Cache:
         data["fingerprints"][library_name] = fingerprint.to_dict()
         self._mark_dirty()
 
-    def check_fingerprint(
-        self, library_name: str, current_fingerprint: LibraryFingerprint
-    ) -> bool:
+    def check_fingerprint(self, library_name: str, current_fingerprint: LibraryFingerprint) -> bool:
         """Check if the library fingerprint matches the stored one.
 
         Args:
