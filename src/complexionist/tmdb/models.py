@@ -68,6 +68,11 @@ class TMDBMovieDetails(BaseModel):
     belongs_to_collection: TMDBCollectionInfo | None = None
 
     @property
+    def year(self) -> int | None:
+        """Get the release year."""
+        return self.release_date.year if self.release_date else None
+
+    @property
     def collection_id(self) -> int | None:
         """Get the collection ID if this movie belongs to one."""
         return self.belongs_to_collection.id if self.belongs_to_collection else None
