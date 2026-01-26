@@ -124,9 +124,7 @@ class MovieReportFormatter(ReportFormatter):
                             "tmdb_id": m.tmdb_id,
                             "title": m.title,
                             "year": m.year,
-                            "release_date": m.release_date.isoformat()
-                            if m.release_date
-                            else None,
+                            "release_date": m.release_date.isoformat() if m.release_date else None,
                         }
                         for m in gap.missing_movies
                     ],
