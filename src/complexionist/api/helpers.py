@@ -105,7 +105,7 @@ def cached_api_call(
 
     # Store in cache
     if cache:
-        description = description_fn(result) if description_fn else None
+        description = description_fn(result) if description_fn else ""
         cache.set(
             namespace,
             category,

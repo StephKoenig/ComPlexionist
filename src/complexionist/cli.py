@@ -3,7 +3,9 @@
 from __future__ import annotations
 
 import sys
+from collections.abc import Callable
 from pathlib import Path
+from typing import Any
 
 import click
 
@@ -74,11 +76,7 @@ def _load_modules() -> None:
     with Status("[dim]Starting up...[/dim]", console=console, spinner="dots"):
         # Import heavy modules to warm them up
         # These imports trigger pydantic model compilation, httpx setup, etc.
-        from complexionist import config  # noqa: F401
-        from complexionist import output  # noqa: F401
-        from complexionist import plex  # noqa: F401
-        from complexionist import tmdb  # noqa: F401
-        from complexionist import tvdb  # noqa: F401
+        from complexionist import config, output, plex, tmdb, tvdb  # noqa: F401
 
     _modules_loaded = True
 
@@ -297,7 +295,7 @@ def _check_config_exists() -> None:
         sys.exit(0)
 
 
-def _list_libraries(libraries: list, lib_type: str) -> None:
+def _list_libraries(libraries: list[Any], lib_type: str) -> None:
     """Display available libraries as a table.
 
     Args:
@@ -323,7 +321,9 @@ def _list_libraries(libraries: list, lib_type: str) -> None:
     console.print('[dim]Example: complexionist movies --library "Movies"[/dim]')
 
 
-def _create_progress_updater(progress_ctx, progress_task):
+def _create_progress_updater(
+    progress_ctx: Any, progress_task: Any
+) -> Callable[[str, int, int], None]:
     """Create a progress callback function for gap finders.
 
     Args:
@@ -341,7 +341,7 @@ def _create_progress_updater(progress_ctx, progress_task):
     return callback
 
 
-def _select_library_interactive(libraries: list, lib_type: str) -> str | None:
+def _select_library_interactive(libraries: list[Any], lib_type: str) -> str | None:
     """Interactively prompt user to select a library.
 
     Args:
@@ -370,20 +370,20 @@ def _select_library_interactive(libraries: list, lib_type: str) -> str | None:
         try:
             idx = int(choice)
             if 1 <= idx <= len(libraries):
-                return libraries[idx - 1].title
+                return str(libraries[idx - 1].title)
             console.print(f"[red]Please enter a number between 1 and {len(libraries)}[/red]")
         except ValueError:
             # Check if they typed a library name directly
-            names = {lib.title.lower(): lib.title for lib in libraries}
+            names: dict[str, str] = {lib.title.lower(): lib.title for lib in libraries}
             if choice.lower() in names:
                 return names[choice.lower()]
             console.print("[red]Please enter a valid number or library name[/red]")
 
 
 def _resolve_libraries(
-    plex_client,
+    plex_client: Any,
     requested: tuple[str, ...],
-    get_libraries_fn,
+    get_libraries_fn: Callable[[], list[Any]],
     lib_type: str,
 ) -> list[str] | None:
     """Resolve library names from user input.
