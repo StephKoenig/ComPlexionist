@@ -341,6 +341,7 @@ complexionist cache refresh    # Invalidate fingerprints for re-fetch
 
 - **Navigation:** `NavigationRail` or `NavigationBar` for main sections
 - **Theme:** `ft.Theme` with `color_scheme_seed` for Material 3 colors
+- **Accent Color:** Plex gold `#F7C600` as primary accent
 - **State:** Python dataclasses + reactive Flet controls
 - **Local Web:** `ft.app(target=main, view=ft.AppView.WEB_BROWSER)` for browser mode
 
