@@ -107,12 +107,13 @@ class PlexClient:
         """Get the connected server, connecting if necessary."""
         if self._server is None:
             self.connect()
-        return self._server  # type: ignore[return-value]
+        assert self._server is not None  # connect() sets this
+        return self._server
 
     @property
     def server_name(self) -> str:
         """Get the server's friendly name."""
-        return self.server.friendlyName
+        return str(self.server.friendlyName)
 
     def __enter__(self) -> "PlexClient":
         self.connect()

@@ -2,7 +2,8 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+from datetime import date
+from typing import TYPE_CHECKING, Any, cast
 
 import httpx
 from pydantic import ValidationError
@@ -148,10 +149,10 @@ class TVDBClient:
     def __exit__(self, *args: object) -> None:
         self.close()
 
-    def _handle_response(self, response: httpx.Response) -> dict:
+    def _handle_response(self, response: httpx.Response) -> dict[str, Any]:
         """Handle API response and raise appropriate errors."""
         if response.status_code == 200:
-            return response.json()
+            return cast(dict[str, Any], response.json())
 
         if response.status_code == 401:
             # Token may have expired, clear it for re-auth
@@ -175,7 +176,7 @@ class TVDBClient:
 
         raise TVDBError(f"TVDB API error ({response.status_code}): {message}")
 
-    def _parse_date(self, date_str: str | None):
+    def _parse_date(self, date_str: str | None) -> date | None:
         """Parse a date string from TVDB API."""
         return parse_date(date_str)
 
@@ -208,7 +209,7 @@ class TVDBClient:
                 status=series_data.get("status", {}).get("name")
                 if series_data.get("status")
                 else None,
-                first_aired=self._parse_date(series_data.get("firstAired")),
+                firstAired=self._parse_date(series_data.get("firstAired")),
                 overview=series_data.get("overview"),
                 year=series_data.get("year"),
             )
@@ -242,10 +243,10 @@ class TVDBClient:
         # Check cache first
         if self._cache:
             cached = self._cache.get("tvdb", "episodes", cache_key)
-            if cached:
+            if cached and "episodes" in cached:
                 if stats:
                     stats.record_cache_hit()
-                return [TVDBEpisode.model_validate(ep) for ep in cached]
+                return [TVDBEpisode.model_validate(ep) for ep in cached["episodes"]]
 
         # Cache miss - making API call
         if stats:
@@ -297,7 +298,7 @@ class TVDBClient:
                 "tvdb",
                 "episodes",
                 cache_key,
-                [ep.model_dump(mode="json") for ep in all_episodes],
+                {"episodes": [ep.model_dump(mode="json") for ep in all_episodes]},
                 ttl_hours=TVDB_EPISODES_TTL_HOURS,
                 description=f"Series {series_id} ({len(all_episodes)} episodes)",
             )
@@ -353,7 +354,7 @@ class TVDBClient:
                     name=item["name"],
                     slug=item.get("slug"),
                     status=item.get("status"),
-                    first_aired=self._parse_date(item.get("first_air_time")),
+                    firstAired=self._parse_date(item.get("first_air_time")),
                     overview=item.get("overview"),
                     year=int(item["year"]) if item.get("year") else None,
                 )

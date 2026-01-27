@@ -126,6 +126,21 @@ Code cleanup and architectural improvements.
 
 ---
 
+### Phase 8.5: MyPy Cleanup ✓
+Fix type errors to make MyPy pass cleanly in CI.
+
+**8.5.1 Quick Fixes**
+- [x] Remove unused `type: ignore` comment in `plex/client.py`
+- [x] Add `cast()` for Any returns in `plex/client.py`, `cache.py`, `tvdb/client.py`, `tmdb/client.py`
+- [x] Add return type annotations in `tvdb/client.py`, `tmdb/client.py`
+
+**8.5.2 Bug Fixes / Type Corrections**
+- [x] Fix `first_aired` → `firstAired` field name in `tvdb/client.py`
+- [x] Fix `cache.set()` receiving `list[dict]` instead of `dict` in `tvdb/client.py`
+- [x] Fix `belongs_to_collection` dict → `TMDBCollectionInfo` in `tmdb/client.py`
+
+---
+
 ## Upcoming Phases
 
 ### Phase 9: GUI (v2.0)

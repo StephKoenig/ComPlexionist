@@ -685,9 +685,37 @@ See `TODO.md` for forward-looking work items.
 
 ---
 
+## Phase 8.5: MyPy Cleanup (2025-01-27)
+
+**Why:** Make the MyPy CI job pass cleanly instead of being informational-only with errors.
+
+**What we did:**
+
+### Type Annotation Fixes
+- Removed unused `type: ignore` comment in `plex/client.py`
+- Added `cast()` for `response.json()` returns (returns `Any`) in:
+  - `plex/client.py` (server name)
+  - `cache.py` (cache get)
+  - `tvdb/client.py` (API response)
+  - `tmdb/client.py` (API response)
+- Added return type annotations to `_parse_date()` methods
+
+### Bug Fixes Discovered via Types
+- Fixed `first_aired` → `firstAired` keyword argument when constructing `TVDBSeries` (mypy caught field alias mismatch)
+- Fixed `cache.set()` in TVDB client passing `list[dict]` instead of `dict` - wrapped episodes list in `{"episodes": [...]}` structure
+- Fixed `belongs_to_collection` passing raw dict instead of `TMDBCollectionInfo` object
+
+**Key files:**
+- `src/complexionist/plex/client.py` - Removed type ignore, added str cast
+- `src/complexionist/cache.py` - Added cast for get() return
+- `src/complexionist/tvdb/client.py` - Multiple fixes: cast, return types, field names, cache structure
+- `src/complexionist/tmdb/client.py` - Cast, return types, TMDBCollectionInfo construction
+
+---
+
 ## Current Status
 
-**Version:** 1.3 (Phase 8 complete)
+**Version:** 1.3.5 (Phase 8.5 complete)
 
 **Features complete:**
 - Movie collection gap detection with TMDB
@@ -703,5 +731,6 @@ See `TODO.md` for forward-looking work items.
 - INI configuration format with fallback support
 - Conditional cache TTL for optimized API usage
 - Fast startup with lazy module loading
+- Clean MyPy type checking (no errors)
 
 **Next:** Phase 9 (GUI v2.0) - Desktop or web-based interface

@@ -38,7 +38,7 @@ import json
 from dataclasses import dataclass, field
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, cast
 
 if TYPE_CHECKING:
     from complexionist.plex import PlexMovie, PlexShow
@@ -311,7 +311,7 @@ class Cache:
                 self._mark_dirty()
                 return None
 
-        return entry.get("data")
+        return cast(dict[str, Any] | None, entry.get("data"))
 
     def set(
         self,

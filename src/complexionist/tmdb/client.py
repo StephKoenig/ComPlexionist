@@ -2,7 +2,8 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+from datetime import date
+from typing import TYPE_CHECKING, Any, cast
 
 import httpx
 from pydantic import ValidationError
@@ -14,7 +15,12 @@ from complexionist.api import (
     APIRateLimitError,
     parse_date,
 )
-from complexionist.tmdb.models import TMDBCollection, TMDBMovie, TMDBMovieDetails
+from complexionist.tmdb.models import (
+    TMDBCollection,
+    TMDBCollectionInfo,
+    TMDBMovie,
+    TMDBMovieDetails,
+)
 
 if TYPE_CHECKING:
     from complexionist.cache import Cache
@@ -95,10 +101,10 @@ class TMDBClient:
     def __exit__(self, *args: object) -> None:
         self.close()
 
-    def _handle_response(self, response: httpx.Response) -> dict:
+    def _handle_response(self, response: httpx.Response) -> dict[str, Any]:
         """Handle API response and raise appropriate errors."""
         if response.status_code == 200:
-            return response.json()
+            return cast(dict[str, Any], response.json())
 
         if response.status_code == 401:
             raise TMDBAuthError("Invalid API key")
@@ -119,7 +125,7 @@ class TMDBClient:
 
         raise TMDBError(f"TMDB API error ({response.status_code}): {message}")
 
-    def _parse_date(self, date_str: str | None):
+    def _parse_date(self, date_str: str | None) -> date | None:
         """Parse a date string from TMDB API."""
         return parse_date(date_str)
 
@@ -158,14 +164,14 @@ class TMDBClient:
 
         # Parse the response
         collection_data = data.get("belongs_to_collection")
-        collection_info = None
+        collection_info: TMDBCollectionInfo | None = None
         if collection_data:
-            collection_info = {
-                "id": collection_data["id"],
-                "name": collection_data["name"],
-                "poster_path": collection_data.get("poster_path"),
-                "backdrop_path": collection_data.get("backdrop_path"),
-            }
+            collection_info = TMDBCollectionInfo(
+                id=collection_data["id"],
+                name=collection_data["name"],
+                poster_path=collection_data.get("poster_path"),
+                backdrop_path=collection_data.get("backdrop_path"),
+            )
 
         try:
             result = TMDBMovieDetails(
