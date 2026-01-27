@@ -27,7 +27,8 @@ The tool compares your Plex library against authoritative external databases (TM
 | Movie Data | TMDB API | Has collection membership data |
 | TV Data | TVDB v4 API | Comprehensive episode listings |
 | CLI Framework | Click or Typer | Modern Python CLI tools |
-| GUI (future) | TBD | Consider: PyQt, Electron, or web-based |
+| GUI (v2.0) | Flet | Flutter-based Python framework (desktop + web) |
+| Extension (v2.1) | TypeScript | Browser extension for Chrome/Firefox |
 | Caching | SQLite or JSON files | Simple, no external dependencies |
 
 ---
@@ -306,9 +307,57 @@ complexionist cache refresh    # Invalidate fingerprints for re-fetch
 
 ---
 
-## Future Enhancements (Out of Scope for v1)
+## GUI Architecture (v2.0+)
 
-- **GUI:** Desktop or web-based interface
+### Screen Flow
+
+```
+┌─────────────┐     ┌─────────────┐     ┌─────────────┐
+│  Onboarding │────▶│  Dashboard  │────▶│   Scanning  │
+│   Wizard    │     │    Home     │     │  Progress   │
+└─────────────┘     └──────┬──────┘     └──────┬──────┘
+                          │                    │
+                          ▼                    ▼
+                   ┌─────────────┐     ┌─────────────┐
+                   │  Settings   │     │   Results   │
+                   │   Panel     │     │   Display   │
+                   └─────────────┘     └─────────────┘
+```
+
+### Screens
+
+| Screen | Purpose | Key Elements |
+|--------|---------|--------------|
+| **Onboarding** | First-run setup | Step-by-step credential input, live validation, progress indicator |
+| **Dashboard** | Quick overview | Connection status badges, library counts, quick scan buttons |
+| **Mode Selection** | Choose scan type | Movies / TV / Both cards with icons |
+| **Library Selection** | Pick target library | Dropdown or cards for available libraries |
+| **Scanning** | Progress display | Phase indicator, progress bar, cancel button, live stats |
+| **Results** | Gap display | Grouped list (by collection/show), search, filter, export buttons |
+| **Settings** | Configuration | Edit credentials, manage exclusions, cache controls |
+| **Help/About** | Documentation | Usage tips, version info, links to docs |
+
+### Flet Implementation (v2.0)
+
+- **Navigation:** `NavigationRail` or `NavigationBar` for main sections
+- **Theme:** `ft.Theme` with `color_scheme_seed` for Material 3 colors
+- **State:** Python dataclasses + reactive Flet controls
+- **Local Web:** `ft.app(target=main, view=ft.AppView.WEB_BROWSER)` for browser mode
+
+### Browser Extension (v2.1)
+
+| Component | Technology |
+|-----------|------------|
+| Popup | HTML + CSS (compact view) |
+| Options | HTML + CSS (full settings) |
+| Logic | TypeScript (shared API clients) |
+| Storage | `browser.storage.sync` (config) + `browser.storage.local` (cache) |
+| Build | esbuild + manifest V3 |
+
+---
+
+## Future Enhancements (Out of Scope for v2)
+
 - **Notifications:** Alert when new movies added to collections
 - **Watchlist integration:** Suggest missing content based on watchlists
 - **Multiple servers:** Support scanning multiple Plex servers
@@ -317,7 +366,7 @@ complexionist cache refresh    # Invalidate fingerprints for re-fetch
 
 ---
 
-## Project Structure (Proposed)
+## Project Structure
 
 ```
 complexionist/
@@ -330,23 +379,50 @@ complexionist/
 │       ├── plex/
 │       │   ├── __init__.py
 │       │   ├── client.py       # Plex connection
-│       │   ├── movies.py       # Movie library scanning
-│       │   └── shows.py        # TV library scanning
+│       │   └── models.py       # Plex data models
 │       ├── tmdb/
 │       │   ├── __init__.py
-│       │   └── client.py       # TMDB API client
+│       │   ├── client.py       # TMDB API client
+│       │   └── models.py       # TMDB data models
 │       ├── tvdb/
 │       │   ├── __init__.py
-│       │   └── client.py       # TVDB API client
+│       │   ├── client.py       # TVDB API client
+│       │   └── models.py       # TVDB data models
 │       ├── gaps/
 │       │   ├── __init__.py
 │       │   ├── movies.py       # Movie gap detection
-│       │   └── episodes.py     # Episode gap detection
-│       └── output/
+│       │   ├── episodes.py     # Episode gap detection
+│       │   └── models.py       # Gap result models
+│       ├── output/
+│       │   ├── __init__.py
+│       │   ├── formatters.py   # Report formatter classes
+│       │   └── movies.py       # Movie-specific formatting
+│       ├── api/                # (v1.3) Base API classes
+│       │   ├── __init__.py
+│       │   └── exceptions.py   # Unified exception hierarchy
+│       ├── models/             # (v1.3) Shared model mixins
+│       │   ├── __init__.py
+│       │   └── mixins.py       # EpisodeCodeMixin, DateAwareMixin
+│       └── gui/                # (v2.0) Flet GUI
 │           ├── __init__.py
-│           ├── text.py         # Text formatter
-│           ├── json.py         # JSON formatter
-│           └── csv.py          # CSV formatter
+│           ├── app.py          # Main app entry
+│           ├── screens/        # Screen components
+│           └── components/     # Reusable widgets
+├── extension/                  # (v2.1) Browser extension
+│   ├── manifest.json           # Chrome Manifest V3
+│   ├── src/
+│   │   ├── popup.ts            # Popup UI logic
+│   │   ├── options.ts          # Options page logic
+│   │   ├── api/                # API clients (TypeScript)
+│   │   │   ├── plex.ts
+│   │   │   ├── tmdb.ts
+│   │   │   └── tvdb.ts
+│   │   └── gaps/               # Gap finding logic
+│   │       ├── movies.ts
+│   │       └── episodes.ts
+│   ├── popup.html
+│   ├── options.html
+│   └── styles/
 ├── tests/
 │   ├── __init__.py
 │   ├── test_plex.py
@@ -355,9 +431,9 @@ complexionist/
 │   └── test_gaps.py
 ├── Docs/
 │   └── ...
-├── pyproject.toml              # Project config (poetry/pip)
+├── pyproject.toml              # Project config
 ├── README.md
-└── .env.example
+└── complexionist.ini.example
 ```
 
 ---
@@ -391,14 +467,25 @@ complexionist/
 - [x] Summary with completion score, timing, and API stats
 - [x] Command rename: `episodes` → `tv`
 
-### v1.3 (Consolidation)
-- [ ] CLI output consolidation (`ReportFormatter` class)
-- [ ] CLI command consolidation (shared scan executor)
-- [ ] API client base class with unified exceptions
-- [ ] Model mixins for shared properties
+### v1.3 (Consolidation) ✓
+- [x] CLI output consolidation (`ReportFormatter` class)
+- [x] API client base class with unified exceptions
+- [x] Model mixins for shared properties
 
-### v2.0
-- [ ] GUI application
+### v2.0 (Flet GUI)
+- [ ] Desktop app with native window (`--gui` flag)
+- [ ] Local web mode (`--web` flag opens browser)
+- [ ] All CLI functionality accessible via GUI
+- [ ] Light/dark mode with system detection
+- [ ] First-run onboarding wizard
+- [ ] Results export (CSV, JSON, clipboard)
+
+### v2.1 (Browser Extension)
+- [ ] Chrome extension published to Web Store
+- [ ] Firefox extension published to Add-ons
+- [ ] Same core functionality as desktop
+- [ ] Config stored in browser sync storage
+- [ ] No installation required for end users
 
 ---
 

@@ -143,10 +143,69 @@ Fix type errors to make MyPy pass cleanly in CI.
 
 ## Upcoming Phases
 
-### Phase 9: GUI (v2.0)
-- [ ] Evaluate GUI options (PyQt, Textual, Web)
-- [ ] Design UI/UX
-- [ ] Implement GUI
+### Phase 9a: Flet GUI (v2.0)
+Desktop and local web interface using Flet framework.
+
+**9a.1 Project Setup**
+- [ ] Add `flet` to dependencies in `pyproject.toml`
+- [ ] Create `src/complexionist/gui/` package
+- [ ] Add `--gui` and `--web` flags to CLI entry point
+
+**9a.2 Core Framework**
+- [ ] App shell with navigation (sidebar or tabs)
+- [ ] Theme support (light/dark mode, system detection)
+- [ ] State management (config, scan results, progress)
+
+**9a.3 Screens**
+- [ ] Onboarding wizard (first-run setup)
+- [ ] Dashboard/home (quick actions, connection status)
+- [ ] Library selection (pick Plex libraries)
+- [ ] Scanning with progress (cancel button, phase indicator)
+- [ ] Results display (grouped list, search, filter)
+- [ ] Settings panel (config editing, exclusions, cache)
+- [ ] Help/about
+
+**9a.4 Integration**
+- [ ] Wire up existing gap finders to GUI
+- [ ] Connect to existing config/cache modules
+- [ ] Local web mode (`complexionist --web` opens browser)
+
+**9a.5 Polish**
+- [ ] Error handling with user-friendly messages
+- [ ] Keyboard shortcuts
+- [ ] Remember window size/position
+
+---
+
+### Phase 9b: Browser Extension (v2.1)
+Cross-platform browser extension for Chrome/Firefox.
+
+**9b.1 Extension Setup**
+- [ ] Create `extension/` directory in repo
+- [ ] `manifest.json` (Chrome Manifest V3)
+- [ ] TypeScript + esbuild build config
+- [ ] Extension popup HTML/CSS
+
+**9b.2 Core Logic (TypeScript)**
+- [ ] Plex API client
+- [ ] TMDB API client
+- [ ] TVDB API client
+- [ ] Gap finding logic
+
+**9b.3 UI Components**
+- [ ] Popup interface (compact mode selection)
+- [ ] Options page (settings/credentials)
+- [ ] Results page (full gap display)
+
+**9b.4 Storage**
+- [ ] Config in `browser.storage.sync` (syncs across devices)
+- [ ] Cache in `browser.storage.local`
+- [ ] IndexedDB for large datasets
+
+**9b.5 Publishing**
+- [ ] Chrome Web Store submission
+- [ ] Firefox Add-ons submission
+- [ ] CI/CD workflow for extension builds
 
 ---
 
