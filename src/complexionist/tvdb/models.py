@@ -47,8 +47,16 @@ class TVDBSeries(BaseModel):
     first_aired: date | None = Field(default=None, alias="firstAired")
     overview: str | None = None
     year: int | None = None
+    image: str | None = None  # Full URL to poster image
 
     model_config = {"populate_by_name": True}
+
+    @property
+    def url(self) -> str:
+        """Get the TVDB series page URL."""
+        if self.slug:
+            return f"https://www.thetvdb.com/series/{self.slug}"
+        return f"https://www.thetvdb.com/dereferrer/series/{self.id}"
 
 
 class TVDBSeriesExtended(TVDBSeries):

@@ -26,6 +26,18 @@ class TMDBMovie(BaseModel):
             return False
         return self.release_date <= date.today()
 
+    @property
+    def url(self) -> str:
+        """Get the TMDB movie page URL."""
+        return f"https://www.themoviedb.org/movie/{self.id}"
+
+    @property
+    def poster_url(self) -> str | None:
+        """Get the full poster image URL (w500 size)."""
+        if self.poster_path:
+            return f"https://image.tmdb.org/t/p/w500{self.poster_path}"
+        return None
+
 
 class TMDBCollectionInfo(BaseModel):
     """Basic collection info from a movie response."""
@@ -81,3 +93,15 @@ class TMDBMovieDetails(BaseModel):
     def collection_name(self) -> str | None:
         """Get the collection name if this movie belongs to one."""
         return self.belongs_to_collection.name if self.belongs_to_collection else None
+
+    @property
+    def url(self) -> str:
+        """Get the TMDB movie page URL."""
+        return f"https://www.themoviedb.org/movie/{self.id}"
+
+    @property
+    def poster_url(self) -> str | None:
+        """Get the full poster image URL (w500 size)."""
+        if self.poster_path:
+            return f"https://image.tmdb.org/t/p/w500{self.poster_path}"
+        return None

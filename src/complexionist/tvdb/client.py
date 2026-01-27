@@ -212,6 +212,7 @@ class TVDBClient:
                 firstAired=self._parse_date(series_data.get("firstAired")),
                 overview=series_data.get("overview"),
                 year=series_data.get("year"),
+                image=series_data.get("image"),
             )
         except (ValidationError, KeyError) as e:
             raise TVDBError(f"Failed to parse series response: {e}") from e
@@ -330,6 +331,7 @@ class TVDBClient:
             firstAired=series.first_aired,
             overview=series.overview,
             year=series.year,
+            image=series.image,
             episodes=episodes,
         )
 
@@ -357,6 +359,7 @@ class TVDBClient:
                     firstAired=self._parse_date(item.get("first_air_time")),
                     overview=item.get("overview"),
                     year=int(item["year"]) if item.get("year") else None,
+                    image=item.get("image_url") or item.get("image"),
                 )
                 results.append(series)
             except (ValidationError, KeyError, ValueError):
