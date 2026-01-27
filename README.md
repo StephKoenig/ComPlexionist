@@ -58,7 +58,7 @@ pip install -e ".[dev]"
 
 ## Configuration
 
-![ComPlexionist Startup](Docs/images/Complexisit-Start.jpg)
+![ComPlexionist Startup](Docs/images/Complexionist-Start.jpg)
 
 ### First-Run Setup
 On first run, ComPlexionist will detect missing configuration and offer to run the setup wizard:
@@ -101,7 +101,7 @@ See `complexionist.ini.example` for a full template with comments.
 
 ### Find Missing Movies
 
-![ComPlexionist scanning progress](Docs/images/Complexisit-Mid.jpg)
+![ComPlexionist scanning progress](Docs/images/Complexionist-Mid.jpg)
 
 ```bash
 # Scan movie library for collection gaps
@@ -205,7 +205,7 @@ complexionist tv --format csv
 
 ## Example Output
 
-![ComPlexionist Finsihed](Docs/images/Complexisit-Done.jpg)
+![ComPlexionist Finsihed](Docs/images/Complexionist-Done.jpg)
 
 ```
 Movie Collection Gaps - Movies
