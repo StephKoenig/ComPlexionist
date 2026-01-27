@@ -5,7 +5,7 @@
 ![Python 3.11+](https://img.shields.io/badge/python-3.11+-3776AB?logo=python&logoColor=white)
 ![Windows x64](https://img.shields.io/badge/windows-x64-0078D6?logo=windows&logoColor=white)
 
-![ComPlexionist Finsihed](Docs/images/Complexisit-Done.jpg)
+![ComPlexionist Finsihed](Docs/images/Complexionist-Done.jpg)
 
 Completing your Plex Media Server libraries.
 
