@@ -5,6 +5,8 @@
 ![Python 3.11+](https://img.shields.io/badge/python-3.11+-3776AB?logo=python&logoColor=white)
 ![Windows x64](https://img.shields.io/badge/windows-x64-0078D6?logo=windows&logoColor=white)
 
+![ComPlexionist Finsihed](Docs/images/Complexisit-Done.jpg)
+
 Completing your Plex Media Server libraries.
 
 ## Features
@@ -56,6 +58,8 @@ pip install -e ".[dev]"
 
 ## Configuration
 
+![ComPlexionist Startup](Docs/images/Complexisit-Start.jpg)
+
 ### First-Run Setup
 On first run, ComPlexionist will detect missing configuration and offer to run the setup wizard:
 
@@ -96,6 +100,8 @@ See `complexionist.ini.example` for a full template with comments.
 ## Usage
 
 ### Find Missing Movies
+
+![ComPlexionist scanning progress](Docs/images/Complexisit-Mid.jpg)
 
 ```bash
 # Scan movie library for collection gaps
@@ -198,6 +204,8 @@ complexionist tv --format csv
 ```
 
 ## Example Output
+
+![ComPlexionist Finsihed](Docs/images/Complexisit-Done.jpg)
 
 ```
 Movie Collection Gaps - Movies
