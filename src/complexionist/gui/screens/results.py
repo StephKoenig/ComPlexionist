@@ -334,7 +334,7 @@ class ResultsScreen(BaseScreen):
                         padding=ft.padding.all(0),
                     ),
                 ),
-                alignment=ft.alignment.center_left,
+                alignment=ft.Alignment(-1, 0),
             )
 
             items.append(
@@ -503,79 +503,143 @@ class ResultsScreen(BaseScreen):
                     continue
 
             # Build episode list organized by season
+            # Group contiguous entirely-missing seasons for cleaner display
             episodes_column_items: list[ft.Control] = []
 
-            for season in show.seasons_with_gaps:
-                # Season header
-                season_total = season.total_episodes
-                season_missing = season.missing_count
+            # Separate seasons into entirely missing vs partially missing
+            seasons = show.seasons_with_gaps
+            i = 0
+            while i < len(seasons):
+                season = seasons[i]
+                is_entirely_missing = season.missing_count == season.total_episodes
 
-                episodes_column_items.append(
-                    ft.Container(
-                        content=ft.Row(
-                            [
-                                ft.Text(
-                                    f"Season {season.season_number}",
-                                    size=13,
-                                    weight=ft.FontWeight.BOLD,
-                                    color=PLEX_GOLD,
-                                ),
-                                ft.Text(
-                                    f"(Missing {season_missing} of {season_total})",
-                                    size=12,
-                                    color=ft.Colors.GREY_500,
-                                ),
-                            ],
-                            spacing=8,
-                        ),
-                        padding=ft.padding.only(top=8, bottom=4),
-                    )
-                )
+                if is_entirely_missing:
+                    # Find contiguous entirely-missing seasons
+                    group_seasons = [season]
+                    total_missing_in_group = season.missing_count
 
-                # Missing episodes for this season (limit to 10 for performance)
-                max_episodes_shown = 10
-                episodes_to_show = season.missing_episodes[:max_episodes_shown]
-                remaining_count = len(season.missing_episodes) - max_episodes_shown
+                    # Look ahead for contiguous entirely-missing seasons
+                    while i + 1 < len(seasons):
+                        next_season = seasons[i + 1]
+                        next_entirely_missing = (
+                            next_season.missing_count == next_season.total_episodes
+                        )
+                        # Check if contiguous (season numbers are sequential)
+                        is_contiguous = (
+                            next_season.season_number == seasons[i].season_number + 1
+                        )
 
-                for ep in episodes_to_show:
-                    # Episode row with code, title, and air date
-                    ep_text = ep.episode_code
-                    if ep.title:
-                        ep_text = f"{ep.episode_code} - {ep.title}"
+                        if next_entirely_missing and is_contiguous:
+                            i += 1
+                            group_seasons.append(next_season)
+                            total_missing_in_group += next_season.missing_count
+                        else:
+                            break
+
+                    # Display the group
+                    if len(group_seasons) == 1:
+                        # Single entirely-missing season
+                        label = f"Season {season.season_number}"
+                    else:
+                        # Multiple contiguous entirely-missing seasons
+                        first_num = group_seasons[0].season_number
+                        last_num = group_seasons[-1].season_number
+                        label = f"Season {first_num} to Season {last_num}"
 
                     episodes_column_items.append(
-                        ft.Row(
-                            [
-                                ft.Icon(
-                                    ft.Icons.RADIO_BUTTON_UNCHECKED,
-                                    size=14,
-                                    color=PLEX_GOLD,
-                                ),
-                                ft.Text(
-                                    ep_text,
-                                    size=13,
-                                    expand=True,
-                                ),
-                                ft.Text(
-                                    ep.aired_str,
-                                    size=12,
-                                    color=ft.Colors.GREY_500,
-                                ),
-                            ],
-                            spacing=8,
+                        ft.Container(
+                            content=ft.Row(
+                                [
+                                    ft.Text(
+                                        label,
+                                        size=13,
+                                        weight=ft.FontWeight.BOLD,
+                                        color=PLEX_GOLD,
+                                    ),
+                                    ft.Text(
+                                        f"(Missing {total_missing_in_group} of {total_missing_in_group})",
+                                        size=12,
+                                        color=ft.Colors.GREY_500,
+                                    ),
+                                ],
+                                spacing=8,
+                            ),
+                            padding=ft.padding.only(top=8, bottom=4),
+                        )
+                    )
+                else:
+                    # Partially missing season - show episodes
+                    season_total = season.total_episodes
+                    season_missing = season.missing_count
+
+                    episodes_column_items.append(
+                        ft.Container(
+                            content=ft.Row(
+                                [
+                                    ft.Text(
+                                        f"Season {season.season_number}",
+                                        size=13,
+                                        weight=ft.FontWeight.BOLD,
+                                        color=PLEX_GOLD,
+                                    ),
+                                    ft.Text(
+                                        f"(Missing {season_missing} of {season_total})",
+                                        size=12,
+                                        color=ft.Colors.GREY_500,
+                                    ),
+                                ],
+                                spacing=8,
+                            ),
+                            padding=ft.padding.only(top=8, bottom=4),
                         )
                     )
 
-                # Show count of remaining episodes if truncated
-                if remaining_count > 0:
-                    episodes_column_items.append(
-                        ft.Text(
-                            f"    ... and {remaining_count} more episodes",
-                            size=12,
-                            italic=True,
-                            color=ft.Colors.GREY_500,
+                    # Missing episodes for this season (limit to 10 for performance)
+                    max_episodes_shown = 10
+                    episodes_to_show = season.missing_episodes[:max_episodes_shown]
+                    remaining_count = len(season.missing_episodes) - max_episodes_shown
+
+                    for ep in episodes_to_show:
+                        # Episode row with code, title, and air date
+                        ep_text = ep.episode_code
+                        if ep.title:
+                            ep_text = f"{ep.episode_code} - {ep.title}"
+
+                        episodes_column_items.append(
+                            ft.Row(
+                                [
+                                    ft.Icon(
+                                        ft.Icons.RADIO_BUTTON_UNCHECKED,
+                                        size=14,
+                                        color=PLEX_GOLD,
+                                    ),
+                                    ft.Text(
+                                        ep_text,
+                                        size=13,
+                                        expand=True,
+                                    ),
+                                    ft.Text(
+                                        ep.aired_str,
+                                        size=12,
+                                        color=ft.Colors.GREY_500,
+                                    ),
+                                ],
+                                spacing=8,
+                            )
                         )
-                    )
+
+                    # Show count of remaining episodes if truncated
+                    if remaining_count > 0:
+                        episodes_column_items.append(
+                            ft.Text(
+                                f"    ... and {remaining_count} more episodes",
+                                size=12,
+                                italic=True,
+                                color=ft.Colors.GREY_500,
+                            )
+                        )
+
+                i += 1
 
             episodes_list = ft.Column(episodes_column_items, spacing=2)
 
@@ -618,7 +682,7 @@ class ResultsScreen(BaseScreen):
                         padding=ft.padding.all(0),
                     ),
                 ),
-                alignment=ft.alignment.center_left,
+                alignment=ft.Alignment(-1, 0),
             )
 
             items.append(
