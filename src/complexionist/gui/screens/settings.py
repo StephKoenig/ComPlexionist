@@ -7,6 +7,11 @@ from typing import TYPE_CHECKING
 
 import flet as ft
 
+from complexionist.config import (
+    get_config,
+    remove_ignored_collection,
+    remove_ignored_show,
+)
 from complexionist.gui.screens.base import BaseScreen
 from complexionist.gui.theme import PLEX_GOLD
 
@@ -135,6 +140,156 @@ class SettingsScreen(BaseScreen):
             content=ft.Text(f"Cache cleared: {count} entries removed"),
         )
         self.page.snack_bar.open = True
+        self.page.update()
+
+    def _create_ignored_items_section(self) -> ft.Card:
+        """Create the ignored items management section."""
+        config = get_config()
+        ignored_collections = config.tmdb.ignored_collections
+        ignored_shows = config.tvdb.ignored_shows
+
+        controls: list[ft.Control] = []
+
+        # Ignored collections
+        controls.append(
+            ft.Text("Ignored Collections (Movies)", size=14, weight=ft.FontWeight.W_500)
+        )
+        if ignored_collections:
+            # Build list with names, sort by name (title first)
+            collection_items: list[tuple[str, int]] = []
+            for coll_id in ignored_collections:
+                name = self.state.ignored_collection_names.get(coll_id, "")
+                collection_items.append((name, coll_id))
+
+            # Sort by name (unknown names at end)
+            collection_items.sort(key=lambda x: (x[0] == "", x[0].lower()))
+
+            for name, coll_id in collection_items:
+                # Create handler with closure
+                def make_remove_handler(collection_id: int) -> Callable[[ft.ControlEvent], None]:
+                    def handler(e: ft.ControlEvent) -> None:
+                        self._remove_ignored_collection(collection_id)
+
+                    return handler
+
+                # Format: "Title | ID: xxxxx" or just "ID: xxxxx" if no name
+                if name:
+                    display_text = f"{name}  |  ID: {coll_id}"
+                else:
+                    display_text = f"ID: {coll_id}"
+
+                controls.append(
+                    ft.Row(
+                        [
+                            ft.Icon(ft.Icons.MOVIE, size=16, color=ft.Colors.GREY_500),
+                            ft.Text(
+                                display_text,
+                                size=13,
+                                color=ft.Colors.GREY_400,
+                                expand=True,
+                            ),
+                            ft.IconButton(
+                                icon=ft.Icons.DELETE_OUTLINE,
+                                icon_size=18,
+                                tooltip="Remove from ignore list",
+                                on_click=make_remove_handler(coll_id),
+                            ),
+                        ],
+                        spacing=8,
+                    )
+                )
+        else:
+            controls.append(
+                ft.Text(
+                    "No ignored collections",
+                    size=12,
+                    color=ft.Colors.GREY_500,
+                    italic=True,
+                )
+            )
+
+        controls.append(ft.Container(height=16))
+
+        # Ignored shows
+        controls.append(ft.Text("Ignored Shows (TV)", size=14, weight=ft.FontWeight.W_500))
+        if ignored_shows:
+            # Build list with names, sort by name (title first)
+            show_items: list[tuple[str, int]] = []
+            for show_id in ignored_shows:
+                name = self.state.ignored_show_names.get(show_id, "")
+                show_items.append((name, show_id))
+
+            # Sort by name (unknown names at end)
+            show_items.sort(key=lambda x: (x[0] == "", x[0].lower()))
+
+            for name, show_id in show_items:
+                # Create handler with closure
+                def make_remove_handler(tvdb_id: int) -> Callable[[ft.ControlEvent], None]:
+                    def handler(e: ft.ControlEvent) -> None:
+                        self._remove_ignored_show(tvdb_id)
+
+                    return handler
+
+                # Format: "Title | ID: xxxxx" or just "ID: xxxxx" if no name
+                if name:
+                    display_text = f"{name}  |  ID: {show_id}"
+                else:
+                    display_text = f"ID: {show_id}"
+
+                controls.append(
+                    ft.Row(
+                        [
+                            ft.Icon(ft.Icons.TV, size=16, color=ft.Colors.GREY_500),
+                            ft.Text(
+                                display_text,
+                                size=13,
+                                color=ft.Colors.GREY_400,
+                                expand=True,
+                            ),
+                            ft.IconButton(
+                                icon=ft.Icons.DELETE_OUTLINE,
+                                icon_size=18,
+                                tooltip="Remove from ignore list",
+                                on_click=make_remove_handler(show_id),
+                            ),
+                        ],
+                        spacing=8,
+                    )
+                )
+        else:
+            controls.append(
+                ft.Text(
+                    "No ignored shows",
+                    size=12,
+                    color=ft.Colors.GREY_500,
+                    italic=True,
+                )
+            )
+
+        return self._create_section("Ignored Items", controls)
+
+    def _remove_ignored_collection(self, collection_id: int) -> None:
+        """Remove a collection from the ignore list."""
+        remove_ignored_collection(collection_id)
+
+        snack = ft.SnackBar(
+            content=ft.Text(f"Collection {collection_id} removed from ignore list"),
+            bgcolor=ft.Colors.GREEN,
+        )
+        self.page.overlay.append(snack)
+        snack.open = True
+        self.page.update()
+
+    def _remove_ignored_show(self, show_id: int) -> None:
+        """Remove a show from the ignore list."""
+        remove_ignored_show(show_id)
+
+        snack = ft.SnackBar(
+            content=ft.Text(f"Show {show_id} removed from ignore list"),
+            bgcolor=ft.Colors.GREEN,
+        )
+        self.page.overlay.append(snack)
+        snack.open = True
         self.page.update()
 
     def build(self) -> ft.Control:
@@ -312,6 +467,9 @@ class SettingsScreen(BaseScreen):
             ],
         )
 
+        # Ignored items section
+        ignored_section = self._create_ignored_items_section()
+
         # About section
         from complexionist import __version__
 
@@ -349,6 +507,7 @@ class SettingsScreen(BaseScreen):
                             appearance,
                             connection,
                             scan_options,
+                            ignored_section,
                             cache_section,
                             about,
                         ],

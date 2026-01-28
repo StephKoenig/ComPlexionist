@@ -7,8 +7,10 @@ from typing import TYPE_CHECKING
 
 import flet as ft
 
+from complexionist.config import add_ignored_collection, add_ignored_show
 from complexionist.gui.screens.base import BaseScreen
 from complexionist.gui.theme import PLEX_GOLD
+from complexionist.statistics import calculate_movie_score, calculate_tv_score
 
 if TYPE_CHECKING:
     from complexionist.gui.state import AppState
@@ -39,6 +41,12 @@ class ResultsScreen(BaseScreen):
         # References to ListView controls for updating on search
         self.movie_list_view: ft.ListView | None = None
         self.tv_list_view: ft.ListView | None = None
+        # References to summary text controls for dynamic updates
+        self.movie_gaps_count_text: ft.Text | None = None
+        self.movie_score_text: ft.Text | None = None
+        self.tv_gaps_count_text: ft.Text | None = None
+        self.tv_missing_count_text: ft.Text | None = None
+        self.tv_score_text: ft.Text | None = None
 
     def _create_stats_line(self) -> ft.Control | None:
         """Create compact stats line showing scan performance metrics."""
@@ -70,6 +78,101 @@ class ResultsScreen(BaseScreen):
             parts.append(ft.Text(f"Cache: {stats.cache_hit_rate:.0f}%", size=12, color=cache_color))
 
         return ft.Row(parts, alignment=ft.MainAxisAlignment.CENTER)
+
+    def _get_score_color(self, score: float) -> str:
+        """Get the color for a score percentage."""
+        if score >= 90:
+            return ft.Colors.GREEN
+        elif score >= 70:
+            return ft.Colors.ORANGE
+        return ft.Colors.RED
+
+    def _ignore_collection(self, collection_id: int, collection_name: str) -> None:
+        """Add a collection to the ignore list and remove from results."""
+        add_ignored_collection(collection_id)
+
+        # Store name for settings display
+        self.state.ignored_collection_names[collection_id] = collection_name
+
+        # Remove from current results
+        if self.state.movie_report:
+            self.state.movie_report.collections_with_gaps = [
+                c
+                for c in self.state.movie_report.collections_with_gaps
+                if c.collection_id != collection_id
+            ]
+
+            # Update summary text controls
+            if self.movie_gaps_count_text:
+                gaps_count = len(self.state.movie_report.collections_with_gaps)
+                self.movie_gaps_count_text.value = str(gaps_count)
+                self.movie_gaps_count_text.color = PLEX_GOLD if gaps_count > 0 else None
+
+            if self.movie_score_text:
+                total_owned = sum(
+                    c.owned_movies for c in self.state.movie_report.collections_with_gaps
+                )
+                total_missing = sum(
+                    c.missing_count for c in self.state.movie_report.collections_with_gaps
+                )
+                score = calculate_movie_score(total_owned, total_missing)
+                self.movie_score_text.value = f"{score:.0f}%"
+                self.movie_score_text.color = self._get_score_color(score)
+
+        # Update the UI
+        self._update_filtered_results()
+
+        # Show confirmation snackbar
+        snack = ft.SnackBar(
+            content=ft.Text(f"'{collection_name}' added to ignore list"),
+            bgcolor=ft.Colors.ORANGE,
+            duration=4000,
+        )
+        self.page.overlay.append(snack)
+        snack.open = True
+        self.page.update()
+
+    def _ignore_show(self, tvdb_id: int, show_title: str) -> None:
+        """Add a show to the ignore list and remove from results."""
+        add_ignored_show(tvdb_id)
+
+        # Store name for settings display
+        self.state.ignored_show_names[tvdb_id] = show_title
+
+        # Remove from current results
+        if self.state.tv_report:
+            self.state.tv_report.shows_with_gaps = [
+                s for s in self.state.tv_report.shows_with_gaps if s.tvdb_id != tvdb_id
+            ]
+
+            # Update summary text controls
+            if self.tv_gaps_count_text:
+                gaps_count = len(self.state.tv_report.shows_with_gaps)
+                self.tv_gaps_count_text.value = str(gaps_count)
+                self.tv_gaps_count_text.color = PLEX_GOLD if gaps_count > 0 else None
+
+            if self.tv_missing_count_text:
+                missing_count = self.state.tv_report.total_missing
+                self.tv_missing_count_text.value = str(missing_count)
+                self.tv_missing_count_text.color = PLEX_GOLD if missing_count > 0 else None
+
+            if self.tv_score_text:
+                score = calculate_tv_score(self.state.tv_report.shows_with_gaps)
+                self.tv_score_text.value = f"{score:.0f}%"
+                self.tv_score_text.color = self._get_score_color(score)
+
+        # Update the UI
+        self._update_filtered_results()
+
+        # Show confirmation snackbar
+        snack = ft.SnackBar(
+            content=ft.Text(f"'{show_title}' added to ignore list"),
+            bgcolor=ft.Colors.ORANGE,
+            duration=4000,
+        )
+        self.page.overlay.append(snack)
+        snack.open = True
+        self.page.update()
 
     def _build_movie_items(self) -> list[ft.Control]:
         """Build the list of movie collection items, filtered by search."""
@@ -194,6 +297,33 @@ class ResultsScreen(BaseScreen):
             else:
                 content_row = movies_list
 
+            # Create ignore button with closure to capture current collection
+            def make_ignore_handler(
+                coll_id: int, coll_name: str
+            ) -> Callable[[ft.ControlEvent], None]:
+                def handler(e: ft.ControlEvent) -> None:
+                    self._ignore_collection(coll_id, coll_name)
+
+                return handler
+
+            ignore_btn = ft.IconButton(
+                icon=ft.Icons.VISIBILITY_OFF,
+                tooltip="Ignore this collection",
+                icon_size=18,
+                icon_color=ft.Colors.GREY_500,
+                on_click=make_ignore_handler(collection.collection_id, collection.collection_name),
+            )
+
+            # Trailing row with ignore button and expand chevron
+            trailing_row = ft.Row(
+                [
+                    ignore_btn,
+                    ft.Icon(ft.Icons.EXPAND_MORE, color=ft.Colors.GREY_500),
+                ],
+                spacing=0,
+                tight=True,
+            )
+
             items.append(
                 ft.ExpansionTile(
                     title=ft.Text(collection.collection_name),
@@ -201,6 +331,7 @@ class ResultsScreen(BaseScreen):
                         f"Missing {len(collection.missing_movies)} of {collection.total_movies}",
                         color=ft.Colors.GREY_400,
                     ),
+                    trailing=trailing_row,
                     controls=[
                         ft.Container(
                             content=content_row,
@@ -234,6 +365,26 @@ class ResultsScreen(BaseScreen):
         if report is None:
             return ft.Text("No movie results available")
 
+        # Calculate collection completion score
+        total_owned = sum(c.owned_movies for c in report.collections_with_gaps)
+        total_missing = sum(c.missing_count for c in report.collections_with_gaps)
+        score = calculate_movie_score(total_owned, total_missing)
+        score_color = self._get_score_color(score)
+
+        # Create dynamic text controls and store references
+        self.movie_gaps_count_text = ft.Text(
+            str(len(report.collections_with_gaps)),
+            size=24,
+            weight=ft.FontWeight.BOLD,
+            color=PLEX_GOLD if report.collections_with_gaps else None,
+        )
+        self.movie_score_text = ft.Text(
+            f"{score:.0f}%",
+            size=24,
+            weight=ft.FontWeight.BOLD,
+            color=score_color,
+        )
+
         # Summary card
         summary = ft.Card(
             content=ft.Container(
@@ -266,12 +417,15 @@ class ResultsScreen(BaseScreen):
                         ft.Column(
                             [
                                 ft.Text("Collections with Gaps", size=12, color=ft.Colors.GREY_400),
-                                ft.Text(
-                                    str(len(report.collections_with_gaps)),
-                                    size=24,
-                                    weight=ft.FontWeight.BOLD,
-                                    color=PLEX_GOLD if report.collections_with_gaps else None,
-                                ),
+                                self.movie_gaps_count_text,
+                            ],
+                            horizontal_alignment=ft.CrossAxisAlignment.CENTER,
+                        ),
+                        ft.VerticalDivider(),
+                        ft.Column(
+                            [
+                                ft.Text("Completion", size=12, color=ft.Colors.GREY_400),
+                                self.movie_score_text,
                             ],
                             horizontal_alignment=ft.CrossAxisAlignment.CENTER,
                         ),
@@ -343,6 +497,31 @@ class ResultsScreen(BaseScreen):
                 f"S{s:02d}: {', '.join(eps)}" for s, eps in sorted(seasons.items())
             )
 
+            # Create ignore button with closure to capture current show
+            def make_ignore_handler(show_id: int, title: str) -> Callable[[ft.ControlEvent], None]:
+                def handler(e: ft.ControlEvent) -> None:
+                    self._ignore_show(show_id, title)
+
+                return handler
+
+            ignore_btn = ft.IconButton(
+                icon=ft.Icons.VISIBILITY_OFF,
+                tooltip="Ignore this show",
+                icon_size=18,
+                icon_color=ft.Colors.GREY_500,
+                on_click=make_ignore_handler(show.tvdb_id, show.show_title),
+            )
+
+            # Trailing row with ignore button and expand chevron
+            trailing_row = ft.Row(
+                [
+                    ignore_btn,
+                    ft.Icon(ft.Icons.EXPAND_MORE, color=ft.Colors.GREY_500),
+                ],
+                spacing=0,
+                tight=True,
+            )
+
             items.append(
                 ft.ExpansionTile(
                     title=ft.Text(show.show_title),
@@ -350,6 +529,7 @@ class ResultsScreen(BaseScreen):
                         f"{len(all_missing)} missing episodes",
                         color=ft.Colors.GREY_400,
                     ),
+                    trailing=trailing_row,
                     controls=[
                         ft.Container(
                             content=ft.Text(season_text, size=14),
@@ -383,6 +563,30 @@ class ResultsScreen(BaseScreen):
         if report is None:
             return ft.Text("No TV results available")
 
+        # Calculate episode completion score
+        score = calculate_tv_score(report.shows_with_gaps)
+        score_color = self._get_score_color(score)
+
+        # Create dynamic text controls and store references
+        self.tv_gaps_count_text = ft.Text(
+            str(len(report.shows_with_gaps)),
+            size=24,
+            weight=ft.FontWeight.BOLD,
+            color=PLEX_GOLD if report.shows_with_gaps else None,
+        )
+        self.tv_missing_count_text = ft.Text(
+            str(report.total_missing),
+            size=24,
+            weight=ft.FontWeight.BOLD,
+            color=PLEX_GOLD if report.total_missing else None,
+        )
+        self.tv_score_text = ft.Text(
+            f"{score:.0f}%",
+            size=24,
+            weight=ft.FontWeight.BOLD,
+            color=score_color,
+        )
+
         # Summary card
         summary = ft.Card(
             content=ft.Container(
@@ -403,12 +607,7 @@ class ResultsScreen(BaseScreen):
                         ft.Column(
                             [
                                 ft.Text("Shows with Gaps", size=12, color=ft.Colors.GREY_400),
-                                ft.Text(
-                                    str(len(report.shows_with_gaps)),
-                                    size=24,
-                                    weight=ft.FontWeight.BOLD,
-                                    color=PLEX_GOLD if report.shows_with_gaps else None,
-                                ),
+                                self.tv_gaps_count_text,
                             ],
                             horizontal_alignment=ft.CrossAxisAlignment.CENTER,
                         ),
@@ -416,12 +615,15 @@ class ResultsScreen(BaseScreen):
                         ft.Column(
                             [
                                 ft.Text("Missing Episodes", size=12, color=ft.Colors.GREY_400),
-                                ft.Text(
-                                    str(report.total_missing),
-                                    size=24,
-                                    weight=ft.FontWeight.BOLD,
-                                    color=PLEX_GOLD if report.total_missing else None,
-                                ),
+                                self.tv_missing_count_text,
+                            ],
+                            horizontal_alignment=ft.CrossAxisAlignment.CENTER,
+                        ),
+                        ft.VerticalDivider(),
+                        ft.Column(
+                            [
+                                ft.Text("Completion", size=12, color=ft.Colors.GREY_400),
+                                self.tv_score_text,
                             ],
                             horizontal_alignment=ft.CrossAxisAlignment.CENTER,
                         ),

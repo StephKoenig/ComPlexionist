@@ -81,6 +81,7 @@ class EpisodeGapFinder:
         include_specials: bool = False,
         recent_threshold_hours: int = 0,
         excluded_shows: list[str] | None = None,
+        ignored_show_ids: list[int] | None = None,
         progress_callback: Callable[[str, int, int], None] | None = None,
     ) -> None:
         """Initialize the gap finder.
@@ -93,6 +94,7 @@ class EpisodeGapFinder:
             recent_threshold_hours: Skip episodes aired within this many hours.
                 Set to 0 to disable. Default is 0 (no threshold).
             excluded_shows: List of show titles to skip.
+            ignored_show_ids: List of TVDB series IDs to skip.
             progress_callback: Optional callback for progress updates.
                 Signature: (stage: str, current: int, total: int)
         """
@@ -102,6 +104,7 @@ class EpisodeGapFinder:
         self.include_specials = include_specials
         self.recent_threshold_hours = recent_threshold_hours
         self.excluded_shows = {s.lower() for s in (excluded_shows or [])}
+        self.ignored_show_ids = set(ignored_show_ids or [])
         self._progress = progress_callback or (lambda *args: None)
 
     def find_gaps(self, library_name: str | None = None) -> EpisodeGapReport:
@@ -126,7 +129,11 @@ class EpisodeGapFinder:
 
         # Step 2: Filter shows with TVDB IDs and apply exclusions
         shows_with_tvdb = [
-            s for s in plex_shows if s.has_tvdb_id and s.title.lower() not in self.excluded_shows
+            s
+            for s in plex_shows
+            if s.has_tvdb_id
+            and s.title.lower() not in self.excluded_shows
+            and s.tvdb_id not in self.ignored_show_ids
         ]
 
         # Step 3: Process each show and find gaps

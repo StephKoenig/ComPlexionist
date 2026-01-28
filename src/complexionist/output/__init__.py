@@ -117,6 +117,7 @@ class MovieReportFormatter(ReportFormatter):
                 {
                     "id": gap.collection_id,
                     "name": gap.collection_name,
+                    "url": gap.tmdb_url,
                     "total": gap.total_movies,
                     "owned": gap.owned_movies,
                     "missing": [
@@ -125,6 +126,7 @@ class MovieReportFormatter(ReportFormatter):
                             "title": m.title,
                             "year": m.year,
                             "release_date": m.release_date.isoformat() if m.release_date else None,
+                            "url": m.tmdb_url,
                         }
                         for m in gap.missing_movies
                     ],
@@ -138,7 +140,9 @@ class MovieReportFormatter(ReportFormatter):
         """Convert movie gap report to CSV string."""
         output = io.StringIO()
         writer = csv.writer(output)
-        writer.writerow(["Collection", "Movie Title", "Year", "TMDB ID", "Release Date"])
+        writer.writerow(
+            ["Collection", "Movie Title", "Year", "TMDB ID", "Release Date", "TMDB URL"]
+        )
 
         for gap in self.report.collections_with_gaps:
             for movie in gap.missing_movies:
@@ -149,6 +153,7 @@ class MovieReportFormatter(ReportFormatter):
                         movie.year or "",
                         movie.tmdb_id,
                         movie.release_date.isoformat() if movie.release_date else "",
+                        movie.tmdb_url,
                     ]
                 )
 
@@ -276,6 +281,11 @@ class TVReportFormatter(ReportFormatter):
     def __init__(self, report: EpisodeGapReport) -> None:
         self.report = report
 
+    @staticmethod
+    def _tvdb_series_url(tvdb_id: int) -> str:
+        """Get TVDB series page URL."""
+        return f"https://www.thetvdb.com/?tab=series&id={tvdb_id}"
+
     def to_json(self) -> str:
         """Convert episode gap report to JSON string."""
         output = {
@@ -288,6 +298,7 @@ class TVReportFormatter(ReportFormatter):
                 {
                     "tvdb_id": show.tvdb_id,
                     "title": show.show_title,
+                    "url": self._tvdb_series_url(show.tvdb_id),
                     "total_episodes": show.total_episodes,
                     "owned_episodes": show.owned_episodes,
                     "seasons": [
@@ -317,9 +328,10 @@ class TVReportFormatter(ReportFormatter):
         """Convert episode gap report to CSV string."""
         output = io.StringIO()
         writer = csv.writer(output)
-        writer.writerow(["Show", "Season", "Episode", "Title", "TVDB ID", "Aired"])
+        writer.writerow(["Show", "Season", "Episode", "Title", "TVDB ID", "Aired", "TVDB URL"])
 
         for show in self.report.shows_with_gaps:
+            show_url = self._tvdb_series_url(show.tvdb_id)
             for season in show.seasons_with_gaps:
                 for ep in season.missing_episodes:
                     writer.writerow(
@@ -330,6 +342,7 @@ class TVReportFormatter(ReportFormatter):
                             ep.title or "",
                             ep.tvdb_id,
                             ep.aired.isoformat() if ep.aired else "",
+                            show_url,
                         ]
                     )
 

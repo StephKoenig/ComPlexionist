@@ -20,6 +20,7 @@ class MovieGapFinder:
         min_collection_size: int = 2,
         min_owned: int = 2,
         excluded_collections: list[str] | None = None,
+        ignored_collection_ids: list[int] | None = None,
         progress_callback: Callable[[str, int, int], None] | None = None,
     ) -> None:
         """Initialize the gap finder.
@@ -33,6 +34,7 @@ class MovieGapFinder:
             min_owned: Only report collections where you own at least this many
                 movies. Default is 2 (prevents noise from single-movie matches).
             excluded_collections: List of collection names to skip.
+            ignored_collection_ids: List of TMDB collection IDs to skip.
             progress_callback: Optional callback for progress updates.
                 Signature: (stage: str, current: int, total: int)
         """
@@ -42,6 +44,7 @@ class MovieGapFinder:
         self.min_collection_size = min_collection_size
         self.min_owned = min_owned
         self.excluded_collections = {c.lower() for c in (excluded_collections or [])}
+        self.ignored_collection_ids = set(ignored_collection_ids or [])
         self._progress = progress_callback or (lambda *args: None)
 
     def find_gaps(self, library_name: str | None = None) -> MovieGapReport:
@@ -153,12 +156,16 @@ class MovieGapFinder:
         for i, collection_id in enumerate(unique_collection_ids):
             self._progress("Analyzing collections", i + 1, total)
 
+            # Skip ignored collections (by ID)
+            if collection_id in self.ignored_collection_ids:
+                continue
+
             try:
                 collection = self._fetch_collection(collection_id)
             except TMDBNotFoundError:
                 continue
 
-            # Skip excluded collections
+            # Skip excluded collections (by name)
             if collection.name.lower() in self.excluded_collections:
                 continue
 

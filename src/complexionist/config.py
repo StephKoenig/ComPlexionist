@@ -24,6 +24,7 @@ class TMDBConfig(BaseModel):
     """TMDB API configuration."""
 
     api_key: str | None = None
+    ignored_collections: list[int] = Field(default_factory=list)
 
 
 class TVDBConfig(BaseModel):
@@ -31,6 +32,7 @@ class TVDBConfig(BaseModel):
 
     api_key: str | None = None
     pin: str | None = None
+    ignored_shows: list[int] = Field(default_factory=list)
 
 
 class OptionsConfig(BaseModel):
@@ -187,6 +189,28 @@ def _parse_list(value: str) -> list[str]:
     return [item.strip() for item in value.split(",") if item.strip()]
 
 
+def _parse_int_list(value: str) -> list[int]:
+    """Parse a comma-separated list of integers from a string.
+
+    Args:
+        value: Comma-separated string of integers.
+
+    Returns:
+        List of integers, excluding invalid items.
+    """
+    if not value or not value.strip():
+        return []
+    result = []
+    for item in value.split(","):
+        item = item.strip()
+        if item:
+            try:
+                result.append(int(item))
+            except ValueError:
+                pass  # Skip invalid integers
+    return result
+
+
 def _load_ini_config(path: Path) -> dict[str, Any]:
     """Load configuration from INI file.
 
@@ -212,17 +236,27 @@ def _load_ini_config(path: Path) -> dict[str, Any]:
 
     # Parse [tmdb] section
     if parser.has_section("tmdb"):
+        tmdb_config: dict[str, Any] = {}
         api_key = parser.get("tmdb", "api_key", fallback=None)
         if api_key:
-            config["tmdb"] = {"api_key": api_key}
+            tmdb_config["api_key"] = api_key
+        if parser.has_option("tmdb", "ignored_collections"):
+            tmdb_config["ignored_collections"] = _parse_int_list(
+                parser.get("tmdb", "ignored_collections")
+            )
+        if tmdb_config:
+            config["tmdb"] = tmdb_config
 
     # Parse [tvdb] section
     if parser.has_section("tvdb"):
-        config["tvdb"] = {
+        tvdb_config: dict[str, Any] = {
             "api_key": parser.get("tvdb", "api_key", fallback=None),
             "pin": parser.get("tvdb", "pin", fallback=None),
         }
-        config["tvdb"] = {k: v for k, v in config["tvdb"].items() if v}
+        if parser.has_option("tvdb", "ignored_shows"):
+            tvdb_config["ignored_shows"] = _parse_int_list(parser.get("tvdb", "ignored_shows"))
+        # Remove None values but keep lists
+        config["tvdb"] = {k: v for k, v in tvdb_config.items() if v is not None and v != ""}
 
     # Parse [options] section
     if parser.has_section("options"):
@@ -491,3 +525,109 @@ exclusions:
         f.write(default_config)
 
     return path
+
+
+def add_ignored_collection(collection_id: int) -> bool:
+    """Add a collection ID to the ignore list.
+
+    Args:
+        collection_id: TMDB collection ID to ignore.
+
+    Returns:
+        True if added, False if already ignored or no config file.
+    """
+    config = get_config()
+    if collection_id in config.tmdb.ignored_collections:
+        return False
+
+    config.tmdb.ignored_collections.append(collection_id)
+    return _save_ignored_lists()
+
+
+def remove_ignored_collection(collection_id: int) -> bool:
+    """Remove a collection ID from the ignore list.
+
+    Args:
+        collection_id: TMDB collection ID to un-ignore.
+
+    Returns:
+        True if removed, False if not found or no config file.
+    """
+    config = get_config()
+    if collection_id not in config.tmdb.ignored_collections:
+        return False
+
+    config.tmdb.ignored_collections.remove(collection_id)
+    return _save_ignored_lists()
+
+
+def add_ignored_show(show_id: int) -> bool:
+    """Add a show ID to the ignore list.
+
+    Args:
+        show_id: TVDB series ID to ignore.
+
+    Returns:
+        True if added, False if already ignored or no config file.
+    """
+    config = get_config()
+    if show_id in config.tvdb.ignored_shows:
+        return False
+
+    config.tvdb.ignored_shows.append(show_id)
+    return _save_ignored_lists()
+
+
+def remove_ignored_show(show_id: int) -> bool:
+    """Remove a show ID from the ignore list.
+
+    Args:
+        show_id: TVDB series ID to un-ignore.
+
+    Returns:
+        True if removed, False if not found or no config file.
+    """
+    config = get_config()
+    if show_id not in config.tvdb.ignored_shows:
+        return False
+
+    config.tvdb.ignored_shows.remove(show_id)
+    return _save_ignored_lists()
+
+
+def _save_ignored_lists() -> bool:
+    """Save the current ignored lists to the config file.
+
+    Updates only the ignored_collections and ignored_shows fields,
+    preserving all other config values.
+
+    Returns:
+        True if saved successfully, False if no config file exists.
+    """
+    path = get_config_path()
+    if path is None or not path.exists():
+        return False
+
+    config = get_config()
+
+    # Read current file
+    parser = configparser.ConfigParser()
+    parser.read(path, encoding="utf-8")
+
+    # Update [tmdb] section with ignored_collections
+    if not parser.has_section("tmdb"):
+        parser.add_section("tmdb")
+    ignored_collections_str = ",".join(str(id) for id in config.tmdb.ignored_collections)
+    parser.set("tmdb", "ignored_collections", ignored_collections_str)
+
+    # Update [tvdb] section with ignored_shows
+    if not parser.has_section("tvdb"):
+        parser.add_section("tvdb")
+    ignored_shows_str = ",".join(str(id) for id in config.tvdb.ignored_shows)
+    parser.set("tvdb", "ignored_shows", ignored_shows_str)
+
+    # Write back to file
+    with open(path, "w", encoding="utf-8") as f:
+        parser.write(f)
+
+    return True

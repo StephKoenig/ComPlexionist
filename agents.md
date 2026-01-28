@@ -75,7 +75,8 @@ src/complexionist/gui/
 - Event handlers set as properties: `control.on_click = handler` (not constructor args)
 - Dialog management: `page.show_dialog(dialog)`, `dialog.open = False`
 - Window events: `page.window.on_event`, async handlers for close
-- Clipboard: `page.set_clipboard(text)`
+- Clipboard: `page.clipboard = text` (property assignment, not method call)
+- Snackbar: `page.overlay.append(snack); snack.open = True; page.update()` (NOT `page.open()`)
 
 **Thread-safe UI updates:**
 - Background scan runs in `threading.Thread`

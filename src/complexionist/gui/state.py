@@ -115,6 +115,10 @@ class AppState:
     movie_report: Any | None = None  # MovieGapReport
     tv_report: Any | None = None  # TVGapReport
 
+    # Ignored item names cache (for settings display)
+    ignored_collection_names: dict[int, str] = field(default_factory=dict)
+    ignored_show_names: dict[int, str] = field(default_factory=dict)
+
     def reset_scan(self) -> None:
         """Reset scan-related state."""
         self.scan_progress = ScanProgress()

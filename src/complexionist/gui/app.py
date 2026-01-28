@@ -88,11 +88,12 @@ def run_app(web_mode: bool = False) -> None:
 
             # If no libraries available, show error
             if not controls:
-                page.snack_bar = ft.SnackBar(
+                snack = ft.SnackBar(
                     content=ft.Text("No libraries available. Check your Plex connection."),
                     bgcolor=ft.Colors.RED,
                 )
-                page.snack_bar.open = True
+                page.overlay.append(snack)
+                snack.open = True
                 page.update()
                 return
 
@@ -139,6 +140,7 @@ def run_app(web_mode: bool = False) -> None:
                     on_click=on_start,
                     bgcolor=PLEX_GOLD,
                     color=ft.Colors.BLACK,
+                    autofocus=True,  # Focus button immediately so first click works
                 ),
             ]
 
@@ -161,11 +163,12 @@ def run_app(web_mode: bool = False) -> None:
                 navigate_to(Screen.DASHBOARD)
             elif msg.get("type") == "error":
                 state.scan_progress.is_running = False
-                page.snack_bar = ft.SnackBar(
+                snack = ft.SnackBar(
                     content=ft.Text(f"Scan error: {msg.get('error', 'Unknown error')}"),
                     bgcolor=ft.Colors.RED,
                 )
-                page.snack_bar.open = True
+                page.overlay.append(snack)
+                snack.open = True
                 page.update()
                 navigate_to(Screen.DASHBOARD)
 
@@ -200,35 +203,10 @@ def run_app(web_mode: bool = False) -> None:
             page.theme_mode = get_theme_mode(dark_mode)
             page.update()
 
-        # File picker for export
-        def on_save_file_result(e: ft.FilePickerResultEvent) -> None:
-            """Handle file save dialog result."""
-            if e.path:
-                try:
-                    # Get the pending export data stored in the picker
-                    content = file_picker.data.get("content", "")
-                    with open(e.path, "w", encoding="utf-8", newline="") as f:
-                        f.write(content)
-                    page.snack_bar = ft.SnackBar(
-                        content=ft.Text(f"Exported to {e.path}"),
-                        bgcolor=ft.Colors.GREEN,
-                    )
-                except Exception as err:
-                    page.snack_bar = ft.SnackBar(
-                        content=ft.Text(f"Export failed: {err}"),
-                        bgcolor=ft.Colors.RED,
-                    )
-                page.snack_bar.open = True
-                page.update()
-
-        file_picker = ft.FilePicker()
-        file_picker.on_result = on_save_file_result
-        file_picker.data = {}  # Store pending export data
-        page.overlay.append(file_picker)
-
         def on_export(format_type: str) -> None:
             """Handle export request."""
             from datetime import date
+            from pathlib import Path
 
             from complexionist.output import MovieReportFormatter, TVReportFormatter
 
@@ -271,34 +249,96 @@ def run_app(web_mode: bool = False) -> None:
                 content = "\n".join(parts)
 
             if not content:
-                page.snack_bar = ft.SnackBar(
+                snack = ft.SnackBar(
                     content=ft.Text("No results to export"),
                     bgcolor=ft.Colors.ORANGE,
                 )
-                page.snack_bar.open = True
+                page.overlay.append(snack)
+                snack.open = True
                 page.update()
                 return
 
             if format_type == "clipboard":
-                # Copy to clipboard
-                page.set_clipboard(content)
-                page.snack_bar = ft.SnackBar(
+                # Copy to clipboard (Flet uses clipboard property, not set_clipboard)
+                page.clipboard = content
+                snack = ft.SnackBar(
                     content=ft.Text("Results copied to clipboard"),
                     bgcolor=ft.Colors.GREEN,
                 )
-                page.snack_bar.open = True
+                page.overlay.append(snack)
+                snack.open = True
                 page.update()
             else:
-                # Show file save dialog
+                # Build filename matching CLI pattern: {library}_{type}_gaps_{date}.{ext}
+                def sanitize(name: str) -> str:
+                    safe = "".join(c if c.isalnum() or c in " -_" else "_" for c in name)
+                    return safe.replace(" ", "_")
+
                 today = date.today().isoformat()
                 ext = "csv" if format_type == "csv" else "json"
-                file_picker.data["content"] = content
-                file_picker.save_file(
-                    dialog_title=f"Export as {ext.upper()}",
-                    file_name=f"complexionist_gaps_{today}.{ext}",
-                    file_type=ft.FilePickerFileType.CUSTOM,
-                    allowed_extensions=[ext],
-                )
+
+                # Determine filename based on what was scanned
+                if state.movie_report and state.tv_report:
+                    # Both - use movie library name + "full"
+                    lib_name = sanitize(state.movie_report.library_name)
+                    filename = f"{lib_name}_full_gaps_{today}.{ext}"
+                elif state.movie_report:
+                    lib_name = sanitize(state.movie_report.library_name)
+                    filename = f"{lib_name}_movie_gaps_{today}.{ext}"
+                elif state.tv_report:
+                    lib_name = sanitize(state.tv_report.library_name)
+                    filename = f"{lib_name}_tv_gaps_{today}.{ext}"
+                else:
+                    filename = f"complexionist_gaps_{today}.{ext}"
+
+                filepath = Path.cwd() / filename
+
+                try:
+                    with open(filepath, "w", encoding="utf-8", newline="") as f:
+                        f.write(content)
+
+                    # Store filepath in a variable the closure can access
+                    saved_path = filepath
+
+                    def open_location(e: ft.ControlEvent) -> None:
+                        """Open file explorer at the save location."""
+                        import subprocess
+                        import sys
+
+                        if sys.platform == "win32":
+                            # Windows: open explorer and select the file
+                            subprocess.run(["explorer", "/select,", str(saved_path)])
+                        elif sys.platform == "darwin":
+                            # macOS: open Finder
+                            subprocess.run(["open", str(saved_path.parent)])
+                        else:
+                            # Linux: try xdg-open
+                            subprocess.run(["xdg-open", str(saved_path.parent)])
+
+                    snack = ft.SnackBar(
+                        content=ft.Row(
+                            [
+                                ft.Text(f"Saved: {filepath.name}"),
+                                ft.TextButton(
+                                    "Open folder",
+                                    on_click=open_location,
+                                    style=ft.ButtonStyle(color=ft.Colors.WHITE),
+                                ),
+                            ],
+                            alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
+                            expand=True,
+                        ),
+                        bgcolor=ft.Colors.GREEN,
+                        duration=6000,  # Show for 6 seconds to give time to click
+                    )
+                except Exception as err:
+                    snack = ft.SnackBar(
+                        content=ft.Text(f"Export failed: {err}"),
+                        bgcolor=ft.Colors.RED,
+                    )
+                page.overlay.append(snack)
+                snack.open = True
+                page.update()
 
         def _update_content() -> None:
             """Update the content based on current screen."""
@@ -517,12 +557,16 @@ def _execute_scan_with_pubsub(state: AppState, page: ft.Page) -> None:
     import time
 
     from complexionist.cache import Cache
+    from complexionist.config import get_config
     from complexionist.gaps import EpisodeGapFinder, MovieGapFinder
     from complexionist.gui.state import ScanStats
     from complexionist.plex import PlexClient
     from complexionist.statistics import ScanStatistics
     from complexionist.tmdb import TMDBClient
     from complexionist.tvdb import TVDBClient
+
+    # Load config for ignored lists
+    config = get_config()
 
     # Start statistics tracking
     stats = ScanStatistics()
@@ -568,6 +612,7 @@ def _execute_scan_with_pubsub(state: AppState, page: ft.Page) -> None:
             finder = MovieGapFinder(
                 plex_client=plex,
                 tmdb_client=tmdb,
+                ignored_collection_ids=config.tmdb.ignored_collections,
                 progress_callback=update_progress,
             )
 
@@ -583,6 +628,7 @@ def _execute_scan_with_pubsub(state: AppState, page: ft.Page) -> None:
             finder = EpisodeGapFinder(
                 plex_client=plex,
                 tvdb_client=tvdb,
+                ignored_show_ids=config.tvdb.ignored_shows,
                 progress_callback=update_progress,
             )
 
