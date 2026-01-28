@@ -477,25 +477,84 @@ class ResultsScreen(BaseScreen):
 
         items: list[ft.Control] = []
         for show in report.shows_with_gaps:
-            # Filter by search
-            if self.search_query and self.search_query.lower() not in show.show_title.lower():
-                continue
+            # Filter by search (show title OR any episode title)
+            if self.search_query:
+                query_lower = self.search_query.lower()
+                title_match = query_lower in show.show_title.lower()
+                episode_match = any(
+                    ep.title and query_lower in ep.title.lower()
+                    for season in show.seasons_with_gaps
+                    for ep in season.missing_episodes
+                )
+                if not title_match and not episode_match:
+                    continue
 
-            # Collect all missing episodes from seasons
-            all_missing = [
-                ep for season in show.seasons_with_gaps for ep in season.missing_episodes
-            ]
+            # Build episode list organized by season
+            episodes_column_items: list[ft.Control] = []
 
-            # Group by season
-            seasons: dict[int, list[str]] = {}
-            for ep in all_missing:
-                if ep.season_number not in seasons:
-                    seasons[ep.season_number] = []
-                seasons[ep.season_number].append(f"E{ep.episode_number:02d}")
+            for season in show.seasons_with_gaps:
+                # Season header
+                season_owned = season.owned_episodes
+                season_total = season.total_episodes
+                season_missing = season.missing_count
 
-            season_text = ", ".join(
-                f"S{s:02d}: {', '.join(eps)}" for s, eps in sorted(seasons.items())
-            )
+                episodes_column_items.append(
+                    ft.Container(
+                        content=ft.Row(
+                            [
+                                ft.Text(
+                                    f"Season {season.season_number}",
+                                    size=13,
+                                    weight=ft.FontWeight.BOLD,
+                                    color=PLEX_GOLD,
+                                ),
+                                ft.Text(
+                                    f"({season_owned}/{season_total} owned, {season_missing} missing)",
+                                    size=12,
+                                    color=ft.Colors.GREY_500,
+                                ),
+                            ],
+                            spacing=8,
+                        ),
+                        padding=ft.padding.only(top=8, bottom=4),
+                    )
+                )
+
+                # Missing episodes for this season
+                for ep in season.missing_episodes:
+                    # Episode row with code, title, and air date
+                    ep_text = ep.episode_code
+                    if ep.title:
+                        ep_text = f"{ep.episode_code} - {ep.title}"
+
+                    episodes_column_items.append(
+                        ft.Row(
+                            [
+                                ft.Icon(
+                                    ft.Icons.RADIO_BUTTON_UNCHECKED,
+                                    size=14,
+                                    color=PLEX_GOLD,
+                                ),
+                                ft.Text(
+                                    ep_text,
+                                    size=13,
+                                    expand=True,
+                                ),
+                                ft.Text(
+                                    ep.aired_str,
+                                    size=12,
+                                    color=ft.Colors.GREY_500,
+                                ),
+                            ],
+                            spacing=8,
+                        )
+                    )
+
+            episodes_list = ft.Column(episodes_column_items, spacing=2)
+
+            # Show completion percentage in subtitle
+            completion = show.completion_percent
+            total_missing = show.missing_count
 
             # Create ignore button with closure to capture current show
             def make_ignore_handler(show_id: int, title: str) -> Callable[[ft.ControlEvent], None]:
@@ -522,17 +581,27 @@ class ResultsScreen(BaseScreen):
                 tight=True,
             )
 
+            # Clickable title that opens TVDB
+            title_button = ft.TextButton(
+                content=ft.Text(show.show_title, size=16),
+                url=show.tvdb_url,
+                tooltip=f"View {show.show_title} on TVDB",
+                style=ft.ButtonStyle(
+                    padding=ft.padding.all(0),
+                ),
+            )
+
             items.append(
                 ft.ExpansionTile(
-                    title=ft.Text(show.show_title),
+                    title=title_button,
                     subtitle=ft.Text(
-                        f"{len(all_missing)} missing episodes",
+                        f"{total_missing} missing · {completion:.0f}% complete",
                         color=ft.Colors.GREY_400,
                     ),
                     trailing=trailing_row,
                     controls=[
                         ft.Container(
-                            content=ft.Text(season_text, size=14),
+                            content=episodes_list,
                             padding=ft.padding.only(left=16, bottom=16, right=16),
                         )
                     ],

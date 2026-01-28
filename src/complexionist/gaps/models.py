@@ -131,6 +131,13 @@ class MissingEpisode(BaseModel):
             return f"{self.episode_code} - {self.title}"
         return self.episode_code
 
+    @property
+    def aired_str(self) -> str:
+        """Get the air date formatted for display."""
+        if self.aired:
+            return self.aired.strftime("%b %d, %Y")
+        return "TBA"
+
 
 class SeasonGap(BaseModel):
     """Missing episodes within a single season."""
@@ -166,6 +173,11 @@ class ShowGap(BaseModel):
         if self.total_episodes == 0:
             return 100.0
         return (self.owned_episodes / self.total_episodes) * 100
+
+    @property
+    def tvdb_url(self) -> str:
+        """Get the TVDB series page URL."""
+        return f"https://www.thetvdb.com/?tab=series&id={self.tvdb_id}"
 
 
 class EpisodeGapReport(BaseModel):
