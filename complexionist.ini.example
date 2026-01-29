@@ -14,12 +14,20 @@ token = your_plex_token_here
 # Get your API key: https://www.themoviedb.org/settings/api
 api_key = your_tmdb_api_key_here
 
+# Ignored collections (TMDB IDs) - managed via GUI ignore button
+# Click "Ignore" on any collection in results to add it here
+# ignored_collections = 8091,748
+
 [tvdb]
 # Get your API key: https://thetvdb.com/api-information
 api_key = your_tvdb_api_key_here
 
 # Optional: TVDB subscriber PIN for enhanced access
 # pin = your_pin_here
+
+# Ignored shows (TVDB IDs) - managed via GUI ignore button
+# Click "Ignore" on any show in results to add it here
+# ignored_shows = 71663,81189
 
 [options]
 # Exclude movies/episodes not yet released (default: true)
@@ -36,10 +44,3 @@ min_collection_size = 2
 
 # Minimum owned movies to consider a collection (default: 2)
 min_owned = 2
-
-[exclusions]
-# Shows to exclude from episode gap scanning (comma-separated)
-# shows = Daily Talk Show, Another Show
-
-# Collections to exclude from movie gap scanning (comma-separated)
-# collections = Anthology Collection

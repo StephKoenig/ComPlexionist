@@ -242,11 +242,13 @@ token = your-plex-token
 
 [tmdb]
 api_key = your-tmdb-api-key
-# ignored_collections = 123,456  # Managed via GUI
+# Ignored collections (TMDB IDs) - managed via GUI ignore button
+# ignored_collections = 8091,748  # e.g., Alien, Terminator
 
 [tvdb]
 api_key = your-tvdb-api-key
-# ignored_shows = 789,012  # Managed via GUI
+# Ignored shows (TVDB IDs) - managed via GUI ignore button
+# ignored_shows = 71663,81189  # e.g., The Simpsons, Breaking Bad
 
 [options]
 exclude_future = true
@@ -254,10 +256,6 @@ exclude_specials = true
 recent_threshold_hours = 24
 min_collection_size = 2
 min_owned = 2
-
-[exclusions]
-# shows = Daily Talk Show, Another Show
-# collections = Anthology Collection
 
 [window]
 # Managed by GUI - saves window size/position
