@@ -5,7 +5,10 @@
 ![Python 3.11+](https://img.shields.io/badge/python-3.11+-3776AB?logo=python&logoColor=white)
 ![Windows x64](https://img.shields.io/badge/windows-x64-0078D6?logo=windows&logoColor=white)
 
-![ComPlexionist Finished](Docs/images/Complexionist-Done.jpg)
+![ComPlexionist GUI Welcome](Docs/images/GUI-Welcome.jpg)
+
+
+![ComPlexionist CLI Done](Docs/images/Complexionist-Done.jpg)
 
 Completing your Plex Media Server libraries.
 
@@ -56,6 +59,9 @@ API responses are cached to reduce redundant calls and speed up subsequent scans
 3. If no configuration exists, the setup wizard will guide you through entering your credentials
 
 ### First-Run Setup
+
+![ComPlexionist Finished](Docs/images/GUI-Settings.jpg)
+
 The setup wizard will prompt for:
 - **Plex server URL** and **token** ([how to find your token](https://support.plex.tv/articles/204059436-finding-an-authentication-token-x-plex-token/))
 - **TMDB API key** ([register free](https://www.themoviedb.org/settings/api))
@@ -92,11 +98,16 @@ pip install -e ".[dev]"
 ## Usage
 
 ### GUI Mode (Default)
+
+![ComPlexionist GUI Scan Mode](Docs/images/GUI-SettingsScan-Mode.jpg)
+
 Simply run the executable without arguments to launch the graphical interface:
 ```bash
 complexionist          # Launches GUI (default)
 complexionist --gui    # Explicitly launch GUI
 ```
+
+
 
 ### CLI Mode
 Use the `--cli` flag or any subcommand to use the command-line interface:
@@ -106,6 +117,9 @@ complexionist movies             # Scan movies (CLI)
 complexionist tv                 # Scan TV shows (CLI)
 complexionist scan               # Scan both (CLI)
 ```
+
+![ComPlexionist GUI Scanning ](Docs/images/GUI-Scanning.jpg)
+
 
 ### Find Missing Movies (CLI)
 
@@ -252,6 +266,8 @@ min_owned = 2
 See `complexionist.ini.example` for a full template with comments.
 
 ## Example Output
+
+![ComPlexionist GUI Results](Docs/images/GUI-Results.jpg)
 
 ![ComPlexionist Finished](Docs/images/Complexionist-Done.jpg)
 
