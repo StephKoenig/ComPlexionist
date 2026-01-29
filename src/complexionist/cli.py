@@ -16,11 +16,9 @@ from rich.panel import Panel
 from rich.text import Text
 
 from complexionist import __version__
+from complexionist.constants import PLEX_YELLOW
 
 console = Console()
-
-# Plex brand color
-PLEX_YELLOW = "#F7C600"
 
 # Track if heavy modules have been loaded
 _modules_loaded = False
@@ -125,13 +123,9 @@ def _has_valid_config() -> bool:
     Returns:
         True if Plex URL, token, TMDB key, and TVDB key are all set.
     """
-    from complexionist.config import find_config_file, get_config
+    from complexionist.config import has_valid_config
 
-    if find_config_file() is None:
-        return False
-
-    cfg = get_config()
-    return bool(cfg.plex.url and cfg.plex.token and cfg.tmdb.api_key and cfg.tvdb.api_key)
+    return has_valid_config()
 
 
 def _run_interactive_start(ctx: click.Context) -> None:
@@ -434,25 +428,32 @@ def _resolve_libraries(
 @click.version_option(version=__version__, prog_name="complexionist")
 @click.option("-v", "--verbose", is_flag=True, help="Enable verbose output")
 @click.option("-q", "--quiet", is_flag=True, help="Minimal output (no progress, only results)")
-@click.option("--gui", is_flag=True, help="Launch graphical user interface")
+@click.option("--cli", is_flag=True, help="Use command-line interface instead of GUI")
+@click.option("--gui", is_flag=True, help="Launch graphical user interface (default)")
 @click.option("--web", is_flag=True, help="Launch GUI in web browser mode")
 @click.pass_context
-def main(ctx: click.Context, verbose: bool, quiet: bool, gui: bool, web: bool) -> None:
-    """ComPlexionist - Find missing movies and TV episodes in your Plex library."""
+def main(ctx: click.Context, verbose: bool, quiet: bool, cli: bool, gui: bool, web: bool) -> None:
+    """ComPlexionist - Find missing movies and TV episodes in your Plex library.
+
+    By default, launches the graphical user interface. Use --cli for command-line mode.
+    """
     ctx.ensure_object(dict)
     ctx.obj["verbose"] = verbose
     ctx.obj["quiet"] = quiet
 
-    # Handle GUI mode
-    if gui or web:
-        from complexionist.gui import run_app
-
-        run_app(web_mode=web)
+    # If a subcommand is invoked, let it handle itself (CLI mode)
+    if ctx.invoked_subcommand is not None:
         return
 
-    # Handle no-args invocation (just running 'complexionist' with no command)
-    if ctx.invoked_subcommand is None:
+    # Explicit --cli flag = CLI interactive mode
+    if cli:
         _handle_no_args(ctx)
+        return
+
+    # Default behavior (no flags) or explicit --gui/--web = GUI mode
+    from complexionist.gui import run_app
+
+    run_app(web_mode=web)
 
 
 @main.command(cls=BannerCommand)
@@ -488,6 +489,11 @@ def main(ctx: click.Context, verbose: bool, quiet: bool, gui: bool, web: bool) -
     help="Disable automatic CSV file output",
 )
 @click.option(
+    "--use-ignore-list",
+    is_flag=True,
+    help="Use the ignored collections list from config (managed via GUI)",
+)
+@click.option(
     "--dry-run",
     is_flag=True,
     help="Validate configuration without running scan",
@@ -501,6 +507,7 @@ def movies(
     min_owned: int | None,
     format: str,
     no_csv: bool,
+    use_ignore_list: bool,
     dry_run: bool,
 ) -> None:
     """Find missing movies from collections in your Plex library.
@@ -576,6 +583,9 @@ def movies(
             stats = ScanStatistics()
             stats.start()
 
+            # Get ignored collection IDs if --use-ignore-list flag is set
+            ignored_collection_ids = cfg.tmdb.ignored_collections if use_ignore_list else None
+
             if quiet:
                 # Quiet mode: no progress indicators
                 finder = MovieGapFinder(
@@ -585,6 +595,7 @@ def movies(
                     min_collection_size=min_collection_size,
                     min_owned=min_owned,
                     excluded_collections=cfg.exclusions.collections,
+                    ignored_collection_ids=ignored_collection_ids,
                 )
                 report = finder.find_gaps(lib_name)
             else:
@@ -616,6 +627,7 @@ def movies(
                         min_collection_size=min_collection_size,
                         min_owned=min_owned,
                         excluded_collections=cfg.exclusions.collections,
+                        ignored_collection_ids=ignored_collection_ids,
                         progress_callback=progress_callback,
                     )
 
@@ -682,6 +694,11 @@ def movies(
     help="Disable automatic CSV file output",
 )
 @click.option(
+    "--use-ignore-list",
+    is_flag=True,
+    help="Use the ignored shows list from config (managed via GUI)",
+)
+@click.option(
     "--dry-run",
     is_flag=True,
     help="Validate configuration without running scan",
@@ -696,6 +713,7 @@ def tv(
     exclude_show: tuple[str, ...],
     format: str,
     no_csv: bool,
+    use_ignore_list: bool,
     dry_run: bool,
 ) -> None:
     """Find missing episodes from TV shows in your Plex library.
@@ -772,6 +790,9 @@ def tv(
             stats = ScanStatistics()
             stats.start()
 
+            # Get ignored show IDs if --use-ignore-list flag is set
+            ignored_show_ids = cfg.tvdb.ignored_shows if use_ignore_list else None
+
             if quiet:
                 # Quiet mode: no progress indicators
                 finder = EpisodeGapFinder(
@@ -781,6 +802,7 @@ def tv(
                     include_specials=include_specials,
                     recent_threshold_hours=recent_threshold,
                     excluded_shows=excluded_shows,
+                    ignored_show_ids=ignored_show_ids,
                 )
                 report = finder.find_gaps(lib_name)
             else:
@@ -812,6 +834,7 @@ def tv(
                         include_specials=include_specials,
                         recent_threshold_hours=recent_threshold,
                         excluded_shows=excluded_shows,
+                        ignored_show_ids=ignored_show_ids,
                         progress_callback=progress_callback,
                     )
 
@@ -854,6 +877,11 @@ def tv(
 )
 @click.option("--include-future", is_flag=True, help="Include unreleased content")
 @click.option(
+    "--use-ignore-list",
+    is_flag=True,
+    help="Use the ignored items list from config (managed via GUI)",
+)
+@click.option(
     "--format",
     "-f",
     type=click.Choice(["text", "json", "csv"]),
@@ -865,6 +893,7 @@ def scan(
     ctx: click.Context,
     library: tuple[str, ...],
     include_future: bool,
+    use_ignore_list: bool,
     format: str,
 ) -> None:
     """Scan both movie and TV libraries for missing content.
@@ -893,6 +922,7 @@ def scan(
         movies,
         library=library,
         include_future=include_future,
+        use_ignore_list=use_ignore_list,
         format=format,
     )
     console.print()
@@ -904,6 +934,7 @@ def scan(
         library=library,
         include_future=include_future,
         include_specials=False,
+        use_ignore_list=use_ignore_list,
         format=format,
     )
 

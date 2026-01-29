@@ -1,85 +1,14 @@
 """Centralized error handling for ComPlexionist GUI.
 
-Provides user-friendly error messages and consistent error display.
+Provides user-friendly error display using shared error utilities.
 """
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
-
 import flet as ft
 
-from complexionist.gui.strings import (
-    ERROR_CONNECTION_REFUSED,
-    ERROR_CONNECTION_TIMEOUT,
-    ERROR_NO_CONFIG,
-    ERROR_PLEX_NOT_FOUND,
-    ERROR_PLEX_UNAUTHORIZED,
-    ERROR_TMDB_RATE_LIMIT,
-    ERROR_TMDB_UNAUTHORIZED,
-    ERROR_TVDB_RATE_LIMIT,
-    ERROR_TVDB_UNAUTHORIZED,
-    ERROR_UNKNOWN,
-)
-
-if TYPE_CHECKING:
-    pass
-
-
-def get_friendly_message(error: Exception) -> str:
-    """Convert a technical exception to a user-friendly message.
-
-    Args:
-        error: The exception that occurred.
-
-    Returns:
-        A user-friendly error message.
-    """
-    error_str = str(error).lower()
-    error_type = type(error).__name__
-
-    # Connection errors
-    if "connection refused" in error_str or "connectrefusederror" in error_type.lower():
-        return ERROR_CONNECTION_REFUSED
-    if "timeout" in error_str or "timed out" in error_str:
-        return ERROR_CONNECTION_TIMEOUT
-
-    # Plex errors
-    if "plexautherror" in error_type.lower() or "401" in error_str:
-        if "plex" in error_str:
-            return ERROR_PLEX_UNAUTHORIZED
-    if "plexnotfounderror" in error_type.lower() or "plexerror" in error_type.lower():
-        if "not found" in error_str:
-            return ERROR_PLEX_NOT_FOUND
-
-    # TMDB errors
-    if "tmdbautherror" in error_type.lower():
-        return ERROR_TMDB_UNAUTHORIZED
-    if "tmdbratelimiterror" in error_type.lower():
-        return ERROR_TMDB_RATE_LIMIT
-    if "tmdb" in error_str and ("401" in error_str or "unauthorized" in error_str):
-        return ERROR_TMDB_UNAUTHORIZED
-
-    # TVDB errors
-    if "tvdbautherror" in error_type.lower():
-        return ERROR_TVDB_UNAUTHORIZED
-    if "tvdbratelimiterror" in error_type.lower():
-        return ERROR_TVDB_RATE_LIMIT
-    if "tvdb" in error_str and ("401" in error_str or "unauthorized" in error_str):
-        return ERROR_TVDB_UNAUTHORIZED
-
-    # Config errors
-    if "no configuration" in error_str or "config" in error_str and "not found" in error_str:
-        return ERROR_NO_CONFIG
-
-    # Default - return the original error message if it's already user-friendly
-    # Otherwise return generic message
-    if len(str(error)) < 100 and not any(
-        tech in error_str for tech in ["traceback", "exception", "error:", "errno"]
-    ):
-        return str(error)
-
-    return ERROR_UNKNOWN
+# Import shared error message function
+from complexionist.errors import get_friendly_message
 
 
 def show_error(
@@ -105,6 +34,7 @@ def show_error(
         details = str(error) if show_details else None
 
     # Build snackbar content
+    content: ft.Control
     if details and details != message:
         content = ft.Column(
             [

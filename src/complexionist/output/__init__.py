@@ -16,6 +16,8 @@ from typing import TYPE_CHECKING
 
 from rich.console import Console
 
+from complexionist.constants import SCORE_THRESHOLD_GOOD, SCORE_THRESHOLD_WARNING
+
 if TYPE_CHECKING:
     from complexionist.gaps.models import EpisodeGapReport, MovieGapReport
     from complexionist.statistics import ScanStatistics
@@ -65,9 +67,9 @@ class ReportFormatter(ABC):
     @staticmethod
     def _get_score_color(score: float) -> str:
         """Get color for score display."""
-        if score >= 90:
+        if score >= SCORE_THRESHOLD_GOOD:
             return "green"
-        elif score >= 70:
+        elif score >= SCORE_THRESHOLD_WARNING:
             return "yellow"
         return "red"
 

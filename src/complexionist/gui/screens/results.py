@@ -8,6 +8,11 @@ from typing import TYPE_CHECKING
 import flet as ft
 
 from complexionist.config import add_ignored_collection, add_ignored_show
+from complexionist.constants import (
+    CACHE_HIT_RATE_GOOD,
+    SCORE_THRESHOLD_GOOD,
+    SCORE_THRESHOLD_WARNING,
+)
 from complexionist.gui.screens.base import BaseScreen
 from complexionist.gui.theme import PLEX_GOLD
 from complexionist.statistics import calculate_movie_score, calculate_tv_score
@@ -60,17 +65,17 @@ class ResultsScreen(BaseScreen):
         ]
 
         # Only show non-zero counts
-        if stats.plex_calls > 0:
+        if stats.plex_requests > 0:
             parts.append(ft.Text(" | ", size=12, color=ft.Colors.GREY_600))
-            parts.append(ft.Text(f"Plex {stats.plex_calls}", size=12, color=ft.Colors.GREY_400))
+            parts.append(ft.Text(f"Plex {stats.plex_requests}", size=12, color=ft.Colors.GREY_400))
 
-        if stats.tmdb_calls > 0:
+        if stats.total_tmdb_calls > 0:
             parts.append(ft.Text(" | ", size=12, color=ft.Colors.GREY_600))
-            parts.append(ft.Text(f"TMDB {stats.tmdb_calls}", size=12, color=ft.Colors.GREY_400))
+            parts.append(ft.Text(f"TMDB {stats.total_tmdb_calls}", size=12, color=ft.Colors.GREY_400))
 
-        if stats.tvdb_calls > 0:
+        if stats.total_tvdb_calls > 0:
             parts.append(ft.Text(" | ", size=12, color=ft.Colors.GREY_600))
-            parts.append(ft.Text(f"TVDB {stats.tvdb_calls}", size=12, color=ft.Colors.GREY_400))
+            parts.append(ft.Text(f"TVDB {stats.total_tvdb_calls}", size=12, color=ft.Colors.GREY_400))
 
         # Show overall cache hit rate
         total_cache = stats.cache_hits + stats.cache_misses
@@ -78,7 +83,7 @@ class ResultsScreen(BaseScreen):
             hit_rate = stats.cache_hit_rate
         else:
             hit_rate = 0.0
-        cache_color = ft.Colors.GREEN if hit_rate > 50 else ft.Colors.ORANGE
+        cache_color = ft.Colors.GREEN if hit_rate > CACHE_HIT_RATE_GOOD else ft.Colors.ORANGE
         parts.append(ft.Text(" | ", size=12, color=ft.Colors.GREY_600))
         parts.append(ft.Text(f"Cache hits: {hit_rate:.0f}%", size=12, color=cache_color))
 
@@ -86,9 +91,9 @@ class ResultsScreen(BaseScreen):
 
     def _get_score_color(self, score: float) -> str:
         """Get the color for a score percentage."""
-        if score >= 90:
+        if score >= SCORE_THRESHOLD_GOOD:
             return ft.Colors.GREEN
-        elif score >= 70:
+        elif score >= SCORE_THRESHOLD_WARNING:
             return ft.Colors.ORANGE
         return ft.Colors.RED
 

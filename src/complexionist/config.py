@@ -368,6 +368,25 @@ def get_config() -> AppConfig:
     return _config
 
 
+def has_valid_config() -> bool:
+    """Check if configuration has minimum required credentials.
+
+    Checks that:
+    1. A config file exists
+    2. Plex URL and token are set
+    3. TMDB API key is set
+    4. TVDB API key is set
+
+    Returns:
+        True if all required credentials are configured.
+    """
+    if find_config_file() is None:
+        return False
+
+    cfg = get_config()
+    return bool(cfg.plex.url and cfg.plex.token and cfg.tmdb.api_key and cfg.tvdb.api_key)
+
+
 def reset_config() -> None:
     """Reset the cached configuration.
 

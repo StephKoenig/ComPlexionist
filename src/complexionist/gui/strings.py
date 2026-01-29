@@ -97,24 +97,11 @@ DIALOG_TV_LIBRARY = "TV Library"
 DIALOG_NO_LIBRARIES = "No libraries available. Check your Plex connection."
 
 # =============================================================================
-# Errors - User Friendly Messages
+# Errors - GUI-specific formatting strings
+# Note: Core error messages are in complexionist.errors module
 # =============================================================================
-ERROR_UNKNOWN = "An unexpected error occurred. Please try again."
-ERROR_CONNECTION_REFUSED = "Cannot connect to the server. Is it running?"
-ERROR_CONNECTION_TIMEOUT = "Connection timed out. The server may be slow or unreachable."
-ERROR_PLEX_UNAUTHORIZED = "Plex authentication failed. Check your token in settings."
-ERROR_PLEX_NOT_FOUND = "Plex server not found at the configured URL."
-ERROR_TMDB_UNAUTHORIZED = "TMDB API key is invalid. Check your key in settings."
-ERROR_TMDB_RATE_LIMIT = "TMDB rate limit reached. Please wait a moment and try again."
-ERROR_TVDB_UNAUTHORIZED = "TVDB API key is invalid. Check your key in settings."
-ERROR_TVDB_RATE_LIMIT = "TVDB rate limit reached. Please wait a moment and try again."
-ERROR_NO_CONFIG = "No configuration found. Please run the setup wizard."
 ERROR_SCAN_FAILED = "Scan failed: {error}"
 ERROR_EXPORT_FAILED = "Export failed: {error}"
-
-# =============================================================================
-# Error Detail Button
-# =============================================================================
 ERROR_SHOW_DETAILS = "Show Details"
 
 # =============================================================================

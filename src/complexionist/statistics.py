@@ -150,6 +150,16 @@ class ScanStatistics:
             return 0.0
         return (self.cache_hits_tvdb / total) * 100
 
+    @property
+    def duration_seconds(self) -> float:
+        """Get the total duration in seconds."""
+        return self.total_duration.total_seconds()
+
+    @property
+    def duration_str(self) -> str:
+        """Get formatted duration string (e.g., '1m 32s' or '45.2s')."""
+        return self._format_duration(self.total_duration)
+
     def start_phase(self, name: str) -> None:
         """Start a new phase.
 

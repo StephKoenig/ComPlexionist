@@ -404,11 +404,21 @@ complexionist/
 │       ├── models/             # (v1.3) Shared model mixins
 │       │   ├── __init__.py
 │       │   └── mixins.py       # EpisodeCodeMixin, DateAwareMixin
+│       ├── constants.py        # (v2.0) Shared constants
+│       ├── errors.py           # (v2.0) Shared error handling
 │       └── gui/                # (v2.0) Flet GUI
 │           ├── __init__.py
-│           ├── app.py          # Main app entry
-│           ├── screens/        # Screen components
-│           └── components/     # Reusable widgets
+│           ├── app.py          # Main app entry + scan runner
+│           ├── state.py        # Application state management
+│           ├── theme.py        # Theme configuration
+│           ├── strings.py      # UI strings (i18n ready)
+│           ├── errors.py       # GUI error display helpers
+│           ├── window_state.py # Window size/position persistence
+│           └── screens/        # Screen components
+│               ├── dashboard.py
+│               ├── scanning.py
+│               ├── results.py
+│               └── settings.py
 ├── extension/                  # (v2.1) Browser extension
 │   ├── manifest.json           # Chrome Manifest V3
 │   ├── src/
@@ -473,13 +483,21 @@ complexionist/
 - [x] API client base class with unified exceptions
 - [x] Model mixins for shared properties
 
-### v2.0 (Flet GUI)
-- [ ] Desktop app with native window (`--gui` flag)
-- [ ] Local web mode (`--web` flag opens browser)
-- [ ] All CLI functionality accessible via GUI
-- [ ] Light/dark mode with system detection
-- [ ] First-run onboarding wizard
-- [ ] Results export (CSV, JSON, clipboard)
+### v2.0 (Flet GUI) ✓
+- [x] Desktop app with native window (default mode)
+- [x] CLI mode with `--cli` flag
+- [ ] Local web mode (`--web` flag - pending)
+- [x] All CLI functionality accessible via GUI
+- [x] Dark mode (Plex gold accent color)
+- [x] Dashboard with connection status and quick scan buttons
+- [x] Scanning screen with live progress and stats
+- [x] Results with search, filter, and export (CSV, JSON, clipboard)
+- [x] Settings panel with credential editing and ignore list management
+- [x] Ignore collections/shows directly from results (saves to INI)
+- [x] Window state persistence (size/position saved to config)
+- [x] Clean window close handling (no errors on Windows)
+- [x] Centralized error handling with friendly messages
+- [x] PyInstaller single-file executable (57 MB)
 
 ### v2.1 (Browser Extension)
 - [ ] Chrome extension published to Web Store
@@ -492,20 +510,23 @@ complexionist/
 
 ## Implementation Notes
 
-**Current implementation status (v1.2 - Phase 7.6 complete):**
+**Current implementation status (v2.0 - Phase 9a complete):**
 
 1. **Project Structure:**
    - Plex: `client.py` + `models.py` (consolidated)
-   - Output: Formatting built into `cli.py`
+   - Output: `formatters.py` with `MovieReportFormatter` and `TVReportFormatter`
    - TMDB: `client.py` + `models.py` with cache support
    - TVDB: `client.py` + `models.py` with cache support
    - Gaps: `movies.py` + `episodes.py` + `models.py`
-   - Config: `config.py` for INI configuration
+   - Config: `config.py` for INI configuration + `has_valid_config()`
    - Cache: `cache.py` for single-file JSON caching
    - Setup: `setup.py` for first-run wizard
-   - Validation: `validation.py` for dry-run mode
-   - Statistics: `statistics.py` for scan metrics
+   - Validation: `validation.py` for dry-run mode + `test_connections()`
+   - Statistics: `statistics.py` for scan metrics + `duration_str`
+   - Constants: `constants.py` for shared values (colors, thresholds)
+   - Errors: `errors.py` for shared error handling
    - Version: `_version.py` for dynamic versioning
+   - GUI: `gui/` package with Flet desktop application
 
 2. **CLI Commands Implemented:**
    - `movies` - Find missing movies from collections
@@ -521,9 +542,13 @@ complexionist/
 3. **CLI Options Implemented:**
    - `--verbose` / `-v` - Detailed output
    - `--quiet` / `-q` - Minimal output (no progress)
+   - `--cli` - Use CLI mode (GUI is default)
+   - `--gui` - Launch GUI (default behavior)
+   - `--web` - Launch GUI in browser mode
    - `--library` / `-l` - Select specific library
    - `--dry-run` - Validate config without scanning
    - `--no-csv` - Disable automatic CSV output
+   - `--use-ignore-list` - Use ignored items from INI (managed via GUI)
    - `--min-owned` - Minimum owned movies for collection filter
    - `--include-future` - Include unreleased content
    - `--include-specials` - Include Season 0

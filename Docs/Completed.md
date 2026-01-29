@@ -834,9 +834,57 @@ See `TODO.md` for forward-looking work items.
 
 ---
 
+## Phase 9a.6: Code Consolidation (2025-01-29)
+
+**Why:** Reduce duplication between CLI and GUI, improve maintainability, prepare for distribution.
+
+**What we did:**
+
+### Shared Modules Created
+- **`constants.py`** - Centralized constants:
+  - `PLEX_GOLD` / `PLEX_YELLOW` - Brand color constant
+  - `SCORE_THRESHOLD_GOOD` (90%), `SCORE_THRESHOLD_WARNING` (70%)
+  - `CACHE_HIT_RATE_GOOD` (50%)
+  - `get_score_rating(score)` - Returns "good"/"warning"/"bad"
+
+- **`errors.py`** - Shared error handling:
+  - User-friendly error message constants
+  - `get_friendly_message(error)` - Converts exceptions to friendly text
+  - Used by both CLI and GUI
+
+### Consolidations
+- **ScanStats → ScanStatistics**: Removed duplicate `ScanStats` from `gui/state.py`, GUI now uses `ScanStatistics` directly
+- **Duration formatting**: Added `duration_str` and `duration_seconds` properties to `ScanStatistics`
+- **Config validation**: Added `has_valid_config()` to `config.py`
+- **Connection testing**: Added `ConnectionTestResult` dataclass and `test_connections()` to `validation.py`
+
+### New CLI Features
+- **`--use-ignore-list`** flag for `movies`, `tv`, and `scan` commands
+  - Uses ignored collection/show IDs from INI config (managed via GUI)
+- **`--cli`** flag - Explicitly use CLI mode (GUI is now default)
+
+### Distribution (PyInstaller)
+- Updated `complexionist.spec` for Flet GUI bundling
+- Single-file executable (57 MB) with all dependencies
+- CLI and GUI both work from the same exe
+- Default mode is GUI; use `--cli` for command-line mode
+
+**Key files created/modified:**
+- `src/complexionist/constants.py` - NEW: Shared constants
+- `src/complexionist/errors.py` - NEW: Shared error messages
+- `src/complexionist/validation.py` - Added `ConnectionTestResult`, `test_connections()`
+- `src/complexionist/config.py` - Added `has_valid_config()`
+- `src/complexionist/statistics.py` - Added `duration_str`, `duration_seconds`
+- `src/complexionist/cli.py` - Added `--use-ignore-list`, `--cli` flags
+- `src/complexionist/gui/state.py` - Removed `ScanStats`, uses `ScanStatistics`
+- `src/complexionist/gui/errors.py` - Now imports from shared `errors.py`
+- `complexionist.spec` - PyInstaller config for Flet GUI
+
+---
+
 ## Current Status
 
-**Version:** 2.0.x (Phase 9a polish complete, consolidation pending)
+**Version:** 2.0.0 (Phase 9a complete with consolidation and distribution)
 
 **Features complete:**
 - Movie collection gap detection with TMDB
@@ -862,5 +910,9 @@ See `TODO.md` for forward-looking work items.
   - Window state persistence (size/position saved to INI)
   - Clean window close handling (no errors on Windows)
   - Ignore collections/shows from results (saved to INI)
+- **Single-file executable** (PyInstaller)
+  - GUI mode by default
+  - CLI mode with `--cli` flag
+  - `--use-ignore-list` to use GUI-managed ignore lists
 
-**Next:** Code consolidation (reduce CLI/GUI duplication) and Phase 9b (browser extension)
+**Next:** Phase 9b (browser extension) or v2.0 release

@@ -4,7 +4,10 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from enum import Enum, auto
-from typing import Any
+from typing import TYPE_CHECKING, Any
+
+if TYPE_CHECKING:
+    from complexionist.statistics import ScanStatistics
 
 
 class Screen(Enum):
@@ -44,56 +47,6 @@ class ScanProgress:
 
 
 @dataclass
-class ScanStats:
-    """Statistics from a completed scan."""
-
-    duration_seconds: float = 0.0
-    api_calls: int = 0
-    cache_hits: int = 0
-    cache_misses: int = 0
-    cache_hits_tmdb: int = 0
-    cache_misses_tmdb: int = 0
-    cache_hits_tvdb: int = 0
-    cache_misses_tvdb: int = 0
-    plex_calls: int = 0
-    tmdb_calls: int = 0
-    tvdb_calls: int = 0
-
-    @property
-    def cache_hit_rate(self) -> float:
-        """Get cache hit rate as percentage."""
-        total = self.cache_hits + self.cache_misses
-        if total == 0:
-            return 0.0
-        return (self.cache_hits / total) * 100
-
-    @property
-    def cache_hit_rate_tmdb(self) -> float:
-        """Get TMDB cache hit rate as percentage."""
-        total = self.cache_hits_tmdb + self.cache_misses_tmdb
-        if total == 0:
-            return 0.0
-        return (self.cache_hits_tmdb / total) * 100
-
-    @property
-    def cache_hit_rate_tvdb(self) -> float:
-        """Get TVDB cache hit rate as percentage."""
-        total = self.cache_hits_tvdb + self.cache_misses_tvdb
-        if total == 0:
-            return 0.0
-        return (self.cache_hits_tvdb / total) * 100
-
-    @property
-    def duration_str(self) -> str:
-        """Get formatted duration string."""
-        if self.duration_seconds < 60:
-            return f"{self.duration_seconds:.1f}s"
-        minutes = int(self.duration_seconds // 60)
-        seconds = self.duration_seconds % 60
-        return f"{minutes}m {seconds:.0f}s"
-
-
-@dataclass
 class ConnectionStatus:
     """Connection status for services."""
 
@@ -128,7 +81,7 @@ class AppState:
     # Scan state
     scan_type: ScanType = ScanType.MOVIES
     scan_progress: ScanProgress = field(default_factory=ScanProgress)
-    scan_stats: ScanStats | None = None
+    scan_stats: ScanStatistics | None = None
     scanning_screen: Any | None = None  # Reference to ScanningScreen for progress updates
 
     # Results

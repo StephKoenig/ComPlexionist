@@ -55,19 +55,28 @@ The GUI is built with [Flet](https://flet.dev/) (Python framework based on Flutt
 ### Package Structure
 ```
 src/complexionist/gui/
-├── __init__.py      # Package exports
-├── app.py           # Main app, navigation, scan execution
-├── state.py         # AppState dataclass (all UI state)
-├── theme.py         # Plex gold theme, colors
+├── __init__.py        # Package exports (run_app)
+├── app.py             # Main app, navigation, scan execution
+├── state.py           # AppState dataclass (all UI state)
+├── theme.py           # Plex gold theme, colors (imports from constants.py)
+├── strings.py         # UI strings (i18n ready)
+├── errors.py          # GUI error display helpers (imports from errors.py)
+├── window_state.py    # Window size/position persistence
 └── screens/
-    ├── __init__.py  # Screen exports
-    ├── base.py      # BaseScreen abstract class
-    ├── dashboard.py # Home screen with scan buttons
-    ├── onboarding.py# First-run setup wizard
-    ├── results.py   # Results with search/export
-    ├── scanning.py  # Progress display
-    └── settings.py  # Settings panel
+    ├── __init__.py    # Screen exports
+    ├── base.py        # BaseScreen abstract class
+    ├── dashboard.py   # Home screen with scan buttons
+    ├── onboarding.py  # First-run setup wizard
+    ├── results.py     # Results with search/export/ignore
+    ├── scanning.py    # Progress display with live stats
+    └── settings.py    # Settings panel with ignore list management
 ```
+
+### Shared Modules
+The GUI uses shared modules from the package root:
+- `constants.py` - PLEX_GOLD color, score thresholds
+- `errors.py` - get_friendly_message() for error translation
+- `validation.py` - test_connections() for connection testing
 
 ### Key Patterns
 
@@ -91,11 +100,16 @@ src/complexionist/gui/
 
 ### Running the GUI
 ```bash
-# Desktop window mode
-.venv/Scripts/complexionist.exe --gui
+# Desktop window mode (default behavior)
+uv run complexionist
+# or explicitly:
+uv run complexionist --gui
+
+# CLI mode (command-line interface)
+uv run complexionist --cli
 
 # Web browser mode (not yet implemented)
-.venv/Scripts/complexionist.exe --web
+uv run complexionist --web
 ```
 
 ---
@@ -126,23 +140,26 @@ pip install -e ".[dev]"
 ### Common local commands (repo root)
 ```bash
 # Run tests
-.venv/Scripts/python.exe -m pytest tests/ -v
+uv run pytest tests/ -v
 
 # Run linting
-.venv/Scripts/python.exe -m ruff check src tests
+uv run ruff check src tests
 
 # Auto-fix lint issues
-.venv/Scripts/python.exe -m ruff check --fix src tests
+uv run ruff check --fix src tests
+
+# Type checking (informational)
+uv run mypy src/complexionist --no-error-summary
+
+# Run the GUI (default mode)
+uv run complexionist
 
 # Run the CLI
-.venv/Scripts/complexionist.exe --help
-.venv/Scripts/complexionist.exe movies --help
-.venv/Scripts/complexionist.exe tv --help
-.venv/Scripts/complexionist.exe config show
-.venv/Scripts/complexionist.exe cache stats
-
-# Run the GUI
-.venv/Scripts/complexionist.exe --gui
+uv run complexionist --cli --help
+uv run complexionist movies --help
+uv run complexionist tv --help
+uv run complexionist config show
+uv run complexionist cache stats
 ```
 
 ### Configuration (complexionist.ini)
@@ -183,36 +200,33 @@ Before committing changes, always run these checks to catch CI failures early:
 
 ```bash
 # Run Ruff linter (catches import errors, unused vars, etc.)
-python -m ruff check src tests
+uv run ruff check src tests
 
 # Run Ruff formatter check (catches formatting issues)
-python -m ruff format --check src tests
+uv run ruff format --check src tests
 
 # Auto-fix ruff issues (if any)
-python -m ruff check --fix src tests
-python -m ruff format src tests
+uv run ruff check --fix src tests
+uv run ruff format src tests
 ```
 
 ### MyPy (optional but recommended)
 MyPy type checking is informational in CI (`continue-on-error: true`), but running it locally helps catch type errors in new code:
 
 ```bash
-# Install mypy if needed
-pip install mypy types-PyYAML types-requests
-
 # Run type checking
-python -m mypy src/complexionist --ignore-missing-imports
+uv run mypy src/complexionist --ignore-missing-imports
 ```
 
-**Note:** Pre-existing mypy errors exist in the codebase. Focus on ensuring your new code doesn't introduce additional errors.
+**Note:** Pre-existing mypy errors exist in the codebase (Flet types, external libs). Focus on ensuring your new code doesn't introduce additional errors.
 
 ### Quick pre-commit checklist
 ```bash
 # Minimum checks before every commit:
-python -m ruff check src tests && python -m ruff format --check src tests
+uv run ruff check src tests && uv run ruff format --check src tests
 
 # If checks fail, auto-fix then re-check:
-python -m ruff check --fix src tests && python -m ruff format src tests
+uv run ruff check --fix src tests && uv run ruff format src tests
 ```
 
 ---
@@ -248,7 +262,7 @@ Goal: keep code clean, keep `Docs/TODO.md` as the single source of truth for fut
 Common sequence:
 ```bash
 # 1. Run pre-commit checks FIRST
-python -m ruff check src tests && python -m ruff format --check src tests
+uv run ruff check src tests && uv run ruff format --check src tests
 
 # 2. Review changes
 git status
@@ -362,29 +376,40 @@ Build a Windows executable locally for testing before creating a release.
 ### Prerequisites
 PyInstaller is included in dev dependencies. If not installed:
 ```bash
-.venv/Scripts/pip.exe install pyinstaller
+uv pip install pyinstaller
 ```
 
 ### Build command
 ```bash
-.venv/Scripts/python.exe -m PyInstaller --onefile --name complexionist --console src/complexionist/cli.py --distpath dist --workpath build --specpath .
+# Use the spec file (includes Flet GUI bundling)
+uv run pyinstaller complexionist.spec --clean
 ```
 
+The spec file (`complexionist.spec`) is configured to:
+- Bundle all Python dependencies
+- Include Flet desktop client (~57 MB total)
+- Create single-file executable
+- Support both CLI and GUI modes
+
 ### Output
-- Executable: `dist/complexionist.exe`
+- Executable: `dist/complexionist.exe` (~57 MB)
 - Build artifacts: `build/` (gitignored)
-- Spec file: `complexionist.spec` (gitignored)
 
 ### Verify the build
 ```bash
+# Test CLI mode
 dist/complexionist.exe --version
-dist/complexionist.exe --help
+dist/complexionist.exe --cli --help
+
+# Test GUI mode (default)
+dist/complexionist.exe
 ```
 
 ### When to build locally
 Build an exe for testing after making code changes to:
 - `src/complexionist/**/*.py` - Any Python source files
 - `pyproject.toml` - Dependencies or entry points
+- `complexionist.spec` - PyInstaller configuration
 
 No need to rebuild for:
 - `Docs/**` - Documentation only

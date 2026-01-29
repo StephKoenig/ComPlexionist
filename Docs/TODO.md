@@ -181,15 +181,20 @@ Desktop and local web interface using Flet framework.
 - [ ] Keyboard shortcuts
 
 **9a.6 Code Consolidation**
-- [ ] Consolidate `ScanStats` (gui/state.py) into `ScanStatistics` (statistics.py)
-- [ ] Move config validation (`has_valid_config()`) to config.py module
-- [ ] Create `constants.py` for shared PLEX color constant
-- [ ] Consolidate duration formatting into statistics.py
-- [ ] Extract score thresholds to shared constants
-- [ ] Create shared connection testing function (used by CLI validation.py and GUI)
-- [ ] Create `ScanRunner` abstraction for scan execution (reduces CLI/GUI duplication)
-- [ ] Add `--use-ignore-list` CLI flag to use ignored items from INI config
-- [ ] Share `get_friendly_message()` error mapping between CLI and GUI
+- [x] Consolidate `ScanStats` (gui/state.py) into `ScanStatistics` (statistics.py)
+- [x] Move config validation (`has_valid_config()`) to config.py module
+- [x] Create `constants.py` for shared PLEX color constant and score thresholds
+- [x] Consolidate duration formatting into statistics.py (`duration_str` property)
+- [x] Extract score thresholds to shared constants (`get_score_rating()`)
+- [x] Create shared connection testing function (`test_connections()` in validation.py)
+- [ ] Create `ScanRunner` abstraction for scan execution (deferred - higher risk)
+- [x] Add `--use-ignore-list` CLI flag to use ignored items from INI config
+- [x] Share `get_friendly_message()` error mapping (moved to `errors.py` module)
+
+**9a.7 Distribution**
+- [x] PyInstaller spec file for single-file executable
+- [x] Bundle Flet desktop client in exe
+- [x] Default to GUI mode, add `--cli` flag for CLI mode
 
 ---
 

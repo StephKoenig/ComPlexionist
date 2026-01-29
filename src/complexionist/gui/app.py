@@ -544,23 +544,19 @@ def _initialize_state(state: AppState) -> None:
         state: Application state to initialize.
     """
     try:
-        from complexionist.config import find_config_file, get_config
+        from complexionist.config import find_config_file, get_config, has_valid_config
 
         config_file = find_config_file()
         if config_file:
             state.config_path = str(config_file)
+
+        # Check if we have minimum required config
+        state.has_valid_config = has_valid_config()
+
+        if state.has_valid_config:
+            # Try to connect to services
             cfg = get_config()
-
-            # Check if we have minimum required config
-            state.has_valid_config = bool(
-                cfg.plex.url and cfg.plex.token and cfg.tmdb.api_key and cfg.tvdb.api_key
-            )
-
-            if state.has_valid_config:
-                # Try to connect to services
-                _test_connections(state, cfg)
-        else:
-            state.has_valid_config = False
+            _test_connections(state, cfg)
 
     except Exception as e:
         state.has_valid_config = False
@@ -572,48 +568,26 @@ def _test_connections(state: AppState, cfg: object) -> None:
 
     Args:
         state: Application state to update.
-        cfg: Configuration object.
+        cfg: Configuration object (unused, kept for API compatibility).
     """
-    # Test Plex connection
-    try:
-        from complexionist.plex import PlexClient
+    from complexionist.validation import test_connections
 
-        plex = PlexClient()
-        plex.connect()
-        state.connection.plex_connected = True
-        state.connection.plex_server_name = plex.server_name or "Plex Server"
+    result = test_connections()
 
-        # Get available libraries
-        state.movie_libraries = [lib.title for lib in plex.get_movie_libraries()]
-        state.tv_libraries = [lib.title for lib in plex.get_tv_libraries()]
+    # Update Plex state
+    state.connection.plex_connected = result.plex_ok
+    state.connection.plex_server_name = result.plex_server_name
+    state.movie_libraries = result.movie_libraries
+    state.tv_libraries = result.tv_libraries
 
-        if state.movie_libraries:
-            state.selected_movie_library = state.movie_libraries[0]
-        if state.tv_libraries:
-            state.selected_tv_library = state.tv_libraries[0]
+    if state.movie_libraries:
+        state.selected_movie_library = state.movie_libraries[0]
+    if state.tv_libraries:
+        state.selected_tv_library = state.tv_libraries[0]
 
-    except Exception:
-        state.connection.plex_connected = False
-
-    # Test TMDB connection
-    try:
-        from complexionist.tmdb import TMDBClient
-
-        tmdb = TMDBClient()
-        tmdb.test_connection()
-        state.connection.tmdb_connected = True
-    except Exception:
-        state.connection.tmdb_connected = False
-
-    # Test TVDB connection
-    try:
-        from complexionist.tvdb import TVDBClient
-
-        tvdb = TVDBClient()
-        tvdb.test_connection()
-        state.connection.tvdb_connected = True
-    except Exception:
-        state.connection.tvdb_connected = False
+    # Update TMDB/TVDB state
+    state.connection.tmdb_connected = result.tmdb_ok
+    state.connection.tvdb_connected = result.tvdb_ok
 
 
 def _execute_scan_with_pubsub(state: AppState, page: ft.Page) -> None:
@@ -623,12 +597,10 @@ def _execute_scan_with_pubsub(state: AppState, page: ft.Page) -> None:
         state: Application state with scan configuration.
         page: Flet page for pubsub communication.
     """
-    import time
 
     from complexionist.cache import Cache
     from complexionist.config import get_config
     from complexionist.gaps import EpisodeGapFinder, MovieGapFinder
-    from complexionist.gui.state import ScanStats
     from complexionist.plex import PlexClient
     from complexionist.statistics import ScanStatistics
     from complexionist.tmdb import TMDBClient
@@ -640,7 +612,6 @@ def _execute_scan_with_pubsub(state: AppState, page: ft.Page) -> None:
     # Start statistics tracking
     stats = ScanStatistics()
     stats.start()
-    start_time = time.time()
 
     def update_progress(phase: str, current: int, total: int) -> None:
         """Send progress update via pubsub for main thread handling."""
@@ -711,20 +682,8 @@ def _execute_scan_with_pubsub(state: AppState, page: ft.Page) -> None:
     # Stop statistics tracking
     stats.stop()
 
-    # Store statistics in state for results page
-    state.scan_stats = ScanStats(
-        duration_seconds=time.time() - start_time,
-        api_calls=stats.total_api_calls,
-        cache_hits=stats.cache_hits,
-        cache_misses=stats.cache_misses,
-        cache_hits_tmdb=stats.cache_hits_tmdb,
-        cache_misses_tmdb=stats.cache_misses_tmdb,
-        cache_hits_tvdb=stats.cache_hits_tvdb,
-        cache_misses_tvdb=stats.cache_misses_tvdb,
-        plex_calls=stats.plex_requests,
-        tmdb_calls=stats.total_tmdb_calls,
-        tvdb_calls=stats.total_tvdb_calls,
-    )
+    # Store statistics directly in state for results page
+    state.scan_stats = stats
 
     # Mark scan complete
     state.scan_progress.is_running = False

@@ -2,8 +2,7 @@
 
 import flet as ft
 
-# Plex brand color
-PLEX_GOLD = "#F7C600"
+from complexionist.constants import PLEX_GOLD
 
 # App colors
 BACKGROUND_DARK = "#1a1a2e"
