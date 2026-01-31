@@ -191,6 +191,10 @@ Desktop and local web interface using Flet framework.
 - [x] Add `--use-ignore-list` CLI flag to use ignored items from INI config
 - [x] Share `get_friendly_message()` error mapping (moved to `errors.py` module)
 
+**9a.8 Robustness**
+- [ ] Thread safety for AppState updates from background scan threads (add locks or use queue)
+- [ ] Config hot-reload (detect INI file changes while app is running)
+
 **9a.7 Distribution**
 - [x] PyInstaller spec file for single-file executable
 - [x] Bundle Flet desktop client in exe
