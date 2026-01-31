@@ -73,7 +73,7 @@ def run_app(web_mode: bool = False) -> None:
             validate_window_position,
         )
 
-        # Load and apply saved window state
+        # Load and apply saved window state (window starts hidden via FLET_APP_HIDDEN)
         if not web_mode:
             window_state = load_window_state()
             window_state = validate_window_position(window_state, 3840, 2160)
@@ -83,6 +83,9 @@ def run_app(web_mode: bool = False) -> None:
             page.window.min_width = 800
             page.window.min_height = 600
 
+            # Commit window settings before adding content
+            page.update()
+
         # Initialize state
         state = AppState()
 
@@ -91,20 +94,14 @@ def run_app(web_mode: bool = False) -> None:
         page.theme = create_theme(dark_mode=True)
         page.theme_mode = get_theme_mode(dark_mode=True)
 
-        # Handle window close to exit cleanly
-        page.window.prevent_close = True
-
+        # Handle window close - save state then let Flet close normally
         async def on_window_event(e: ft.WindowEvent) -> None:
             if e.type == ft.WindowEventType.CLOSE:
                 # Save window state before closing
                 if not web_mode:
                     current_state = capture_window_state(page)
                     save_window_state(current_state)
-
-                page.window.prevent_close = False
-                await page.window.destroy()
-                # Force exit if destroy doesn't terminate the process
-                os._exit(0)
+                # Let Flet handle the close naturally
 
         page.window.on_event = on_window_event
 
@@ -556,11 +553,17 @@ def run_app(web_mode: bool = False) -> None:
             # Then run connection tests in background
             page.run_task(async_init)
 
+        # Now show the window (everything is set up)
+        if not web_mode:
+            page.window.visible = True
+            page.update()
+
     # Run the app
     if web_mode:
         ft.app(target=main, view=ft.AppView.WEB_BROWSER)
     else:
-        ft.app(target=main)
+        # Start hidden to prevent window flashing during setup
+        ft.app(target=main, view=ft.AppView.FLET_APP_HIDDEN)
 
 
 def _initialize_state(state: AppState) -> None:

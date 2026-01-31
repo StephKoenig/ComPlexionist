@@ -4,10 +4,11 @@ from __future__ import annotations
 
 from collections.abc import Callable
 from typing import TYPE_CHECKING
+from urllib.parse import quote
 
 import flet as ft
 
-from complexionist.config import add_ignored_collection, add_ignored_show
+from complexionist.config import add_ignored_collection, add_ignored_show, get_config
 from complexionist.constants import (
     CACHE_HIT_RATE_GOOD,
     SCORE_THRESHOLD_GOOD,
@@ -276,19 +277,45 @@ class ResultsScreen(BaseScreen):
             )
 
             # Missing movies (with bullet points)
+            find_enabled = get_config().options.find
             for m in collection.missing_movies:
-                movies_column_items.append(
-                    ft.TextButton(
-                        content=ft.Text(
-                            f"• {m.title} ({m.year or 'TBA'})",
-                            size=14,
-                        ),
-                        url=m.tmdb_url,
-                        style=ft.ButtonStyle(
-                            padding=ft.padding.symmetric(horizontal=0, vertical=2),
-                        ),
+                movie_display = f"{m.title} ({m.year or 'TBA'})"
+                if find_enabled:
+                    # Show movie with search link
+                    geek_url = f"https://nzbgeek.info/geekseek.php?moviesgeekseek=1&c=2000&browseincludewords={quote(movie_display)}"
+                    movies_column_items.append(
+                        ft.Row(
+                            [
+                                ft.TextButton(
+                                    content=ft.Text(f"• {movie_display}", size=14),
+                                    url=m.tmdb_url,
+                                    style=ft.ButtonStyle(
+                                        padding=ft.padding.symmetric(horizontal=0, vertical=2),
+                                    ),
+                                ),
+                                ft.TextButton(
+                                    content=ft.Text("[🔍 Geek]", size=12, color=ft.Colors.BLUE_400),
+                                    url=geek_url,
+                                    tooltip="Search on NZBgeek",
+                                    style=ft.ButtonStyle(
+                                        padding=ft.padding.symmetric(horizontal=0, vertical=2),
+                                    ),
+                                ),
+                            ],
+                            spacing=4,
+                            tight=True,
+                        )
                     )
-                )
+                else:
+                    movies_column_items.append(
+                        ft.TextButton(
+                            content=ft.Text(f"• {movie_display}", size=14),
+                            url=m.tmdb_url,
+                            style=ft.ButtonStyle(
+                                padding=ft.padding.symmetric(horizontal=0, vertical=2),
+                            ),
+                        )
+                    )
 
             movies_list = ft.Column(movies_column_items, spacing=0)
 
@@ -740,13 +767,36 @@ class ResultsScreen(BaseScreen):
                 alignment=ft.Alignment(-1, 0),
             )
 
+            # Build subtitle with optional search link
+            find_enabled = get_config().options.find
+            if find_enabled:
+                geek_url = f"https://nzbgeek.info/geekseek.php?moviesgeekseek=1&c=5000&browseincludewords={quote(show.show_title)}"
+                subtitle_widget = ft.Row(
+                    [
+                        ft.Text(
+                            f"{total_missing} missing · {completion:.0f}% complete · ",
+                            color=ft.Colors.GREY_400,
+                        ),
+                        ft.TextButton(
+                            content=ft.Text("🔍 Geek", size=12, color=ft.Colors.BLUE_400),
+                            url=geek_url,
+                            tooltip="Search on NZBgeek",
+                            style=ft.ButtonStyle(padding=ft.padding.all(0)),
+                        ),
+                    ],
+                    spacing=0,
+                    tight=True,
+                )
+            else:
+                subtitle_widget = ft.Text(
+                    f"{total_missing} missing · {completion:.0f}% complete",
+                    color=ft.Colors.GREY_400,
+                )
+
             items.append(
                 ft.ExpansionTile(
                     title=title_button,
-                    subtitle=ft.Text(
-                        f"{total_missing} missing · {completion:.0f}% complete",
-                        color=ft.Colors.GREY_400,
-                    ),
+                    subtitle=subtitle_widget,
                     trailing=trailing_row,
                     controls=[
                         ft.Container(

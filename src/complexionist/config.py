@@ -43,6 +43,7 @@ class OptionsConfig(BaseModel):
     recent_threshold_hours: int = 24
     min_collection_size: int = 2
     min_owned: int = 2  # Minimum owned movies to report collection gaps
+    find: bool = False  # Enable NZB search links (secret feature)
 
 
 class ExclusionsConfig(BaseModel):
@@ -264,6 +265,7 @@ def _load_ini_config(path: Path) -> dict[str, Any]:
         for key in [
             "exclude_future",
             "exclude_specials",
+            "find",
         ]:
             if parser.has_option("options", key):
                 options[key] = _parse_bool(parser.get("options", key))

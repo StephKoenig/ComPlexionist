@@ -7,6 +7,7 @@ from typing import TYPE_CHECKING
 
 import flet as ft
 
+from complexionist.cache import get_cache_file_path
 from complexionist.config import (
     get_config,
     remove_ignored_collection,
@@ -485,7 +486,7 @@ class SettingsScreen(BaseScreen):
                             [
                                 ft.Text("API Response Cache"),
                                 ft.Text(
-                                    f"Location: {self.state.config_path or 'Default'}",
+                                    f"Location: {get_cache_file_path()}",
                                     size=12,
                                     color=ft.Colors.GREY_400,
                                 ),
