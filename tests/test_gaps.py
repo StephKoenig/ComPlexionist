@@ -1114,7 +1114,7 @@ class TestEpisodeGapFinder:
         We skip the test if we're within the first 2 hours of the day to avoid
         false failures.
         """
-        from datetime import datetime, timedelta
+        from datetime import datetime
 
         # Skip if we're within first 2 hours of the day (flaky zone)
         now = datetime.now()
