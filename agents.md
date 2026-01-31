@@ -378,17 +378,48 @@ Flet CLI is included as a dependency. PyInstaller is included in dev dependencie
 
 ### Build command
 ```bash
-# Use flet pack (same as CI build)
-# Note: Must include flet/controls for icons.json data file
+# IMPORTANT: flet pack clears the dist/ folder, which deletes your test config/cache!
+# Use this backup/restore workflow to preserve them.
+
+# Step 1: Backup config and cache (if they exist)
+mkdir -p /tmp/complexionist-backup
+cp dist/complexionist.ini /tmp/complexionist-backup/ 2>/dev/null || true
+cp dist/complexionist.cache.json /tmp/complexionist-backup/ 2>/dev/null || true
+
+# Step 2: Build with flet pack
 uv run flet pack src/complexionist/cli.py --name complexionist --icon icon.ico --yes \
   --add-data "$(uv run python -c 'import flet; import os; print(os.path.dirname(flet.__file__))')/controls;flet/controls"
+
+# Step 3: Restore config and cache
+cp /tmp/complexionist-backup/complexionist.ini dist/ 2>/dev/null || true
+cp /tmp/complexionist-backup/complexionist.cache.json dist/ 2>/dev/null || true
 ```
 
-This uses Flet's official packaging tool which:
-- Bundles all Python dependencies
-- Includes Flet desktop client and control data files
-- Creates single-file executable
-- Supports both CLI and GUI modes
+**PowerShell version:**
+```powershell
+# Backup
+New-Item -ItemType Directory -Force -Path $env:TEMP\complexionist-backup | Out-Null
+Copy-Item dist\complexionist.ini $env:TEMP\complexionist-backup\ -ErrorAction SilentlyContinue
+Copy-Item dist\complexionist.cache.json $env:TEMP\complexionist-backup\ -ErrorAction SilentlyContinue
+
+# Build
+$fletPath = (uv run python -c "import flet; import os; print(os.path.dirname(flet.__file__))").Trim()
+uv run flet pack src/complexionist/cli.py --name complexionist --icon icon.ico --yes --add-data "$fletPath/controls;flet/controls"
+
+# Restore
+Copy-Item $env:TEMP\complexionist-backup\complexionist.ini dist\ -ErrorAction SilentlyContinue
+Copy-Item $env:TEMP\complexionist-backup\complexionist.cache.json dist\ -ErrorAction SilentlyContinue
+```
+
+**Why this matters:** The exe looks for config in its own directory first. Keeping `complexionist.ini` and `complexionist.cache.json` in dist/ creates a self-contained test environment. Without them, you'll need to re-run the setup wizard and rebuild the API cache (which can take minutes with a large library).
+
+### What gets preserved in dist/
+When testing locally, the dist folder may contain:
+- `complexionist.exe` - The built executable (replaced on each build)
+- `complexionist.ini` - Your test configuration (preserve this!)
+- `complexionist.cache.json` - Cached API responses (preserve this!)
+
+The exe looks for config in its own directory first, making dist/ a self-contained test environment.
 
 ### Output
 - Executable: `dist/complexionist.exe` (~80 MB)
