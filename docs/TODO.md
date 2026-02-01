@@ -163,7 +163,7 @@ Desktop and local web interface using Flet framework.
 - [x] Scanning with progress (pubsub-based updates, cancel button, live stats)
 - [x] Results display (grouped ExpansionTiles, search filter, owned/missing)
 - [x] Settings panel (config path, theme toggle, re-run setup)
-- [ ] Help/about
+- [x] Help screen with embedded user guide
 
 **9a.4 Integration** ✓
 - [x] Wire up existing gap finders (MovieGapFinder, EpisodeGapFinder)
@@ -271,5 +271,5 @@ The movie gap finder calls `get_movie()` individually for each movie to check co
 - [x] Specification.md
 - [x] Implementation-Plan.md
 - [x] Completed.md (updated)
-- [ ] User guide
+- [x] User guide (embedded in Help screen)
 - [ ] API key setup instructions

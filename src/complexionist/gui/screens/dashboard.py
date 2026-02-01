@@ -41,7 +41,9 @@ class DashboardScreen(BaseScreen):
         """Create connection status badges."""
         conn = self.state.connection
 
-        def badge(label: str, connected: bool, is_checking: bool = False) -> ft.Container:
+        def badge(
+            label: str, connected: bool, is_checking: bool = False, tooltip: str = ""
+        ) -> ft.Container:
             if is_checking:
                 # Show spinner while checking
                 return ft.Container(
@@ -55,9 +57,11 @@ class DashboardScreen(BaseScreen):
                     padding=ft.padding.symmetric(horizontal=8, vertical=4),
                     border_radius=12,
                     bgcolor=ft.Colors.with_opacity(0.1, ft.Colors.GREY),
+                    tooltip=f"Checking {label} connection...",
                 )
             color = ft.Colors.GREEN if connected else ft.Colors.RED
             icon = ft.Icons.CHECK_CIRCLE if connected else ft.Icons.ERROR
+            status = "Connected" if connected else "Not connected"
             return ft.Container(
                 content=ft.Row(
                     [
@@ -69,13 +73,14 @@ class DashboardScreen(BaseScreen):
                 padding=ft.padding.symmetric(horizontal=8, vertical=4),
                 border_radius=12,
                 bgcolor=ft.Colors.with_opacity(0.1, color),
+                tooltip=f"{status} - {tooltip}",
             )
 
         return ft.Row(
             [
-                badge("Plex", conn.plex_connected, conn.is_checking),
-                badge("TMDB", conn.tmdb_connected, conn.is_checking),
-                badge("TVDB", conn.tvdb_connected, conn.is_checking),
+                badge("Plex", conn.plex_connected, conn.is_checking, "Your media server"),
+                badge("TMDB", conn.tmdb_connected, conn.is_checking, "Movie collection data"),
+                badge("TVDB", conn.tvdb_connected, conn.is_checking, "TV episode data"),
             ],
             spacing=8,
         )
@@ -218,10 +223,12 @@ class DashboardScreen(BaseScreen):
                     "Settings",
                     icon=ft.Icons.SETTINGS,
                     on_click=lambda e: self.on_settings(),
+                    tooltip="Configure API keys and preferences",
                 ),
                 ft.OutlinedButton(
                     "Clear Cache",
                     icon=ft.Icons.DELETE_SWEEP,
+                    tooltip="Delete cached API data to force fresh lookups",
                 ),
             ],
             spacing=8,

@@ -493,6 +493,13 @@ Example: `1.1.15` where:
    - Document new features, changes, requirements
    - Commit any updates before tagging
 
+4. **Review and update Help content:**
+   - Check `src/complexionist/gui/screens/help.py` for the embedded user guide
+   - Add documentation for any new features
+   - Update descriptions for changed features
+   - Remove references to removed features
+   - Commit any updates before tagging
+
 ### Create release
 
 ```bash

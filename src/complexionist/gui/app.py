@@ -406,6 +406,7 @@ def run_app(web_mode: bool = False) -> None:
             # Import screens here to avoid circular imports
             from complexionist.gui.screens import (
                 DashboardScreen,
+                HelpScreen,
                 OnboardingScreen,
                 ResultsScreen,
                 ScanningScreen,
@@ -456,6 +457,12 @@ def run_app(web_mode: bool = False) -> None:
                     on_theme_change=on_theme_change,
                     on_setup=lambda: navigate_to(Screen.ONBOARDING),
                 )
+            elif state.current_screen == Screen.HELP:
+                screen = HelpScreen(
+                    page,
+                    state,
+                    on_back=lambda: navigate_to(Screen.DASHBOARD),
+                )
             else:
                 screen = DashboardScreen(
                     page,
@@ -477,6 +484,8 @@ def run_app(web_mode: bool = False) -> None:
                 navigate_to(Screen.RESULTS)
             elif idx == 2:
                 navigate_to(Screen.SETTINGS)
+            elif idx == 3:
+                navigate_to(Screen.HELP)
 
         nav_rail = ft.NavigationRail(
             selected_index=0,
@@ -498,6 +507,11 @@ def run_app(web_mode: bool = False) -> None:
                     icon=ft.Icons.SETTINGS_OUTLINED,
                     selected_icon=ft.Icons.SETTINGS,
                     label="Settings",
+                ),
+                ft.NavigationRailDestination(
+                    icon=ft.Icons.HELP_OUTLINE,
+                    selected_icon=ft.Icons.HELP,
+                    label="Help",
                 ),
             ],
             on_change=on_nav_change,

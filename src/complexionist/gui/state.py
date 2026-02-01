@@ -18,6 +18,7 @@ class Screen(Enum):
     SCANNING = auto()
     RESULTS = auto()
     SETTINGS = auto()
+    HELP = auto()
 
 
 class ScanType(Enum):
