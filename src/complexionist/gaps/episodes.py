@@ -189,6 +189,7 @@ class EpisodeGapFinder:
                 tvdb_episodes=tvdb_episodes,
                 poster_url=poster_url,
                 first_episode_path=first_episode_path,
+                status=series_info.status,
             )
 
             if gap and gap.missing_count > 0:
@@ -290,6 +291,7 @@ class EpisodeGapFinder:
         tvdb_episodes: list[TVDBEpisode],
         poster_url: str | None = None,
         first_episode_path: str | None = None,
+        status: str | None = None,
     ) -> ShowGap | None:
         """Find gaps for a single show.
 
@@ -300,6 +302,7 @@ class EpisodeGapFinder:
             tvdb_episodes: Expected episodes from TVDB.
             poster_url: Optional URL to the show poster image.
             first_episode_path: Path to the first owned episode file.
+            status: Show status from TVDB (e.g., "Continuing", "Ended").
 
         Returns:
             ShowGap if there are missing episodes, None otherwise.
@@ -360,5 +363,6 @@ class EpisodeGapFinder:
             owned_episodes=total_owned,
             poster_url=poster_url,
             first_episode_path=first_episode_path,
+            status=status,
             seasons_with_gaps=seasons_with_gaps,
         )

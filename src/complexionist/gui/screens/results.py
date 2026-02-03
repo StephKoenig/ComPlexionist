@@ -845,13 +845,20 @@ class ResultsScreen(BaseScreen):
                 alignment=ft.Alignment(-1, 0),
             )
 
-            # Build subtitle with optional folder button and search link
+            # Build subtitle with status, optional folder button and search link
             subtitle_parts: list[ft.Control] = [
                 ft.Text(
                     f"{total_missing} missing · {completion:.0f}% complete",
                     color=ft.Colors.GREY_400,
                 ),
             ]
+
+            # Add "Ended" indicator for completed shows
+            if show.is_ended:
+                subtitle_parts.append(ft.Text(" · ", color=ft.Colors.GREY_400))
+                subtitle_parts.append(
+                    ft.Text("Ended", color=ft.Colors.BLUE_GREY_400, italic=True)
+                )
 
             # Add folder button if we have a file path (BEFORE Geek link)
             if show.folder_path:

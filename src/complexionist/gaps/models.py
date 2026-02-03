@@ -95,10 +95,26 @@ class CollectionGap(BaseModel):
 
     @property
     def expected_folder_name(self) -> str:
-        """Get the expected collection folder name (collection name without ' Collection')."""
+        """Get the expected collection folder name (collection name without ' Collection').
+
+        Sanitizes invalid path characters for Windows/Linux compatibility.
+        """
+        import re
+
         name = self.collection_name
         if name.endswith(" Collection"):
             name = name[:-11]  # Remove " Collection"
+
+        # Replace invalid path characters with hyphen
+        # Invalid on Windows: \ / : * ? " < > |
+        name = re.sub(r'[\\/:*?"<>|]', "-", name)
+
+        # Clean up multiple consecutive hyphens
+        name = re.sub(r"-+", "-", name)
+
+        # Remove leading/trailing hyphens and spaces
+        name = name.strip("- ")
+
         return name
 
     @property
@@ -233,7 +249,22 @@ class ShowGap(BaseModel):
     owned_episodes: int
     poster_url: str | None = None
     first_episode_path: str | None = None
+    status: str | None = None  # e.g., "Continuing", "Ended"
     seasons_with_gaps: list[SeasonGap] = Field(default_factory=list)
+
+    @property
+    def is_ended(self) -> bool:
+        """Check if the show has ended (no more episodes expected)."""
+        if not self.status:
+            return False
+        return self.status.lower() in ("ended", "cancelled")
+
+    @property
+    def is_continuing(self) -> bool:
+        """Check if the show is still continuing."""
+        if not self.status:
+            return False
+        return self.status.lower() == "continuing"
 
     @property
     def missing_count(self) -> int:

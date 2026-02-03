@@ -41,7 +41,9 @@ class ScanningScreen(BaseScreen):
         self.progress_bar = ft.ProgressBar(width=400, color=PLEX_GOLD, value=0)
         self.progress_text = ft.Text("Preparing...", size=14)
         self.stats_text = ft.Text("", size=12, color=ft.Colors.GREY_400)
-        self.phase_text = ft.Text("", size=16)
+        # Two-line phase display: action label (static) + item name (dynamic)
+        self.phase_action_text = ft.Text("", size=14, color=ft.Colors.GREY_400)
+        self.phase_item_text = ft.Text("", size=16)
         # Live API stats line
         self.api_stats_text = ft.Text("", size=12, color=ft.Colors.GREY_500)
 
@@ -89,7 +91,16 @@ class ScanningScreen(BaseScreen):
             self.progress_text.value = "Processing..."
             self.stats_text.value = ""
 
-        self.phase_text.value = phase
+        # Split phase into action + item if it contains a colon
+        # e.g., "Analyzing: Show Name" -> action="Analyzing", item="Show Name"
+        if ": " in phase:
+            action, item = phase.split(": ", 1)
+            self.phase_action_text.value = action
+            self.phase_item_text.value = item
+        else:
+            # Single-line phase (no item name)
+            self.phase_action_text.value = ""
+            self.phase_item_text.value = phase
 
         # Update live API stats (matching CLI format)
         stats = ScanStatistics.get_current()
@@ -127,7 +138,8 @@ class ScanningScreen(BaseScreen):
     def scan_complete(self) -> None:
         """Called when scan is complete."""
         self.progress_bar.value = 1.0
-        self.phase_text.value = "Complete!"
+        self.phase_action_text.value = ""
+        self.phase_item_text.value = "Complete!"
         self.progress_text.value = "Scan finished"
         self.update()
         self.on_complete()
@@ -150,8 +162,9 @@ class ScanningScreen(BaseScreen):
                         weight=ft.FontWeight.BOLD,
                     ),
                     ft.Container(height=8),
-                    self.phase_text,
-                    ft.Container(height=32),
+                    self.phase_action_text,
+                    self.phase_item_text,
+                    ft.Container(height=24),
                     self.progress_bar,
                     ft.Container(height=8),
                     self.progress_text,

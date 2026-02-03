@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import asyncio
+import atexit
+import os
 import sys
 import threading
 from typing import Any
@@ -11,6 +13,77 @@ import flet as ft
 
 from complexionist.gui.state import AppState, ScanType, Screen
 from complexionist.gui.theme import PLEX_GOLD, create_theme, get_theme_mode
+
+# Track if we're shutting down to prevent multiple cleanup attempts
+_shutting_down = False
+
+
+def _kill_child_processes() -> None:
+    """Kill any child processes spawned by this application (Windows only).
+
+    Flet spawns Flutter processes that may not terminate properly.
+    This function ensures all child processes are terminated.
+    """
+    if sys.platform != "win32":
+        return
+
+    try:
+        import subprocess
+
+        # Get our process ID
+        pid = os.getpid()
+
+        # Use WMIC to find child processes (more reliable than psutil)
+        result = subprocess.run(
+            ["wmic", "process", "where", f"ParentProcessId={pid}", "get", "ProcessId"],
+            capture_output=True,
+            text=True,
+            timeout=5,
+        )
+
+        # Parse child PIDs and terminate them
+        for line in result.stdout.strip().split("\n")[1:]:  # Skip header
+            line = line.strip()
+            if line and line.isdigit():
+                child_pid = int(line)
+                try:
+                    subprocess.run(
+                        ["taskkill", "/F", "/PID", str(child_pid)],
+                        capture_output=True,
+                        timeout=5,
+                    )
+                except Exception:
+                    pass
+    except Exception:
+        # If WMIC fails, try to kill flet processes by name as fallback
+        try:
+            import subprocess
+
+            subprocess.run(
+                ["taskkill", "/F", "/IM", "flet.exe"],
+                capture_output=True,
+                timeout=5,
+            )
+        except Exception:
+            pass
+
+
+def _force_exit() -> None:
+    """Force a clean exit, killing child processes first."""
+    global _shutting_down
+    if _shutting_down:
+        return
+    _shutting_down = True
+
+    # Kill any lingering child processes
+    _kill_child_processes()
+
+    # Force exit to prevent any cleanup issues
+    os._exit(0)
+
+
+# Register atexit handler as safety net
+atexit.register(_kill_child_processes)
 
 
 def _suppress_windows_close_error() -> None:
@@ -96,18 +169,33 @@ def run_app(web_mode: bool = False) -> None:
         if not web_mode:
             page.window.icon = "icon.png"
 
-        # Handle window close - save state and force clean exit
-        async def on_window_event(e: ft.WindowEvent) -> None:
+        # Handle app lifecycle changes for proper cleanup
+        def on_lifecycle_change(e: ft.AppLifecycleStateChangeEvent) -> None:
+            """Handle app lifecycle state changes."""
+            if e.state == ft.AppLifecycleState.DETACH:
+                # App is being closed - save state and cleanup
+                if not web_mode:
+                    current_state = capture_window_state(page)
+                    save_window_state(current_state)
+                # Force clean exit
+                _force_exit()
+
+        page.on_app_lifecycle_state_change = on_lifecycle_change
+
+        # Also handle window close event as backup
+        def on_window_event(e: ft.WindowEvent) -> None:
             if e.type == ft.WindowEventType.CLOSE:
                 # Save window state before closing
                 if not web_mode:
                     current_state = capture_window_state(page)
                     save_window_state(current_state)
-                # Force clean exit - Flet doesn't properly clean up child processes
+                # Destroy window and force exit
                 page.window.destroy()
-                import os
+                # Give Flet a moment to process destroy, then force exit
+                import time
 
-                os._exit(0)
+                time.sleep(0.1)
+                _force_exit()
 
         page.window.on_event = on_window_event
 

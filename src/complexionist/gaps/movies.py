@@ -127,7 +127,7 @@ class MovieGapFinder:
             if movie.tmdb_id is None:
                 continue
 
-            self._progress("Checking collection membership", i + 1, total)
+            self._progress(f"Checking: {movie.title}", i + 1, total)
 
             try:
                 collection_id = self._get_movie_collection_id(movie.tmdb_id)
@@ -180,14 +180,14 @@ class MovieGapFinder:
         gaps: list[CollectionGap] = []
 
         for i, collection_id in enumerate(unique_collection_ids):
-            self._progress("Analyzing collections", i + 1, total)
-
             # Skip ignored collections (by ID)
             if collection_id in self.ignored_collection_ids:
+                self._progress("Analyzing: (skipped)", i + 1, total)
                 continue
 
             try:
                 collection = self._fetch_collection(collection_id)
+                self._progress(f"Analyzing: {collection.name}", i + 1, total)
             except TMDBNotFoundError:
                 continue
             except TMDBError as e:
