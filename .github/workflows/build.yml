@@ -28,7 +28,9 @@ jobs:
         uses: astral-sh/setup-uv@v5
 
       - name: Install dependencies
-        run: uv pip install --system -e ".[dev]"
+        run: |
+          uv pip install --system -e ".[dev]"
+          uv pip install --system flet-desktop
 
       - name: Get version
         id: version

@@ -3,7 +3,12 @@ import importlib, os
 
 def _pkg_dir(name):
     """Find a package's directory regardless of venv or system install."""
-    return os.path.dirname(importlib.import_module(name).__file__)
+    try:
+        return os.path.dirname(importlib.import_module(name).__file__)
+    except ModuleNotFoundError:
+        raise ModuleNotFoundError(
+            f"Package '{name}' not found. Install it with: pip install {name.replace('_', '-')}"
+        )
 
 _flet_dir = _pkg_dir('flet')
 _flet_desktop_dir = _pkg_dir('flet_desktop')
