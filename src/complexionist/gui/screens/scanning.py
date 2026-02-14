@@ -7,6 +7,7 @@ from typing import TYPE_CHECKING
 
 import flet as ft
 
+from complexionist.eta import ETACalculator
 from complexionist.gui.screens.base import BaseScreen
 from complexionist.gui.state import ScanType
 from complexionist.gui.theme import PLEX_GOLD
@@ -44,6 +45,9 @@ class ScanningScreen(BaseScreen):
         # Two-line phase display: action label (static) + item name (dynamic)
         self.phase_action_text = ft.Text("", size=14, color=ft.Colors.GREY_400)
         self.phase_item_text = ft.Text("", size=16)
+        # ETA countdown
+        self.eta_calculator = ETACalculator()
+        self.eta_text = ft.Text("", size=13, color=PLEX_GOLD, italic=True)
         # Live API stats line
         self.api_stats_text = ft.Text("", size=12, color=ft.Colors.GREY_500)
 
@@ -86,10 +90,14 @@ class ScanningScreen(BaseScreen):
             # Update stats text with percentage
             percent = (current / total) * 100
             self.stats_text.value = f"{percent:.0f}% complete"
+            # Update ETA countdown
+            self.eta_calculator.update(phase, current, total)
+            self.eta_text.value = self.eta_calculator.format_remaining()
         else:
             self.progress_bar.value = None  # Indeterminate
             self.progress_text.value = "Processing..."
             self.stats_text.value = ""
+            self.eta_text.value = ""
 
         # Split phase into action + item if it contains a colon
         # e.g., "Analyzing: Show Name" -> action="Analyzing", item="Show Name"
@@ -141,6 +149,8 @@ class ScanningScreen(BaseScreen):
         self.phase_action_text.value = ""
         self.phase_item_text.value = "Complete!"
         self.progress_text.value = "Scan finished"
+        self.eta_text.value = ""
+        self.eta_calculator.reset()
         self.update()
         self.on_complete()
 
@@ -170,6 +180,8 @@ class ScanningScreen(BaseScreen):
                     self.progress_text,
                     ft.Container(height=4),
                     self.stats_text,
+                    ft.Container(height=4),
+                    self.eta_text,
                     ft.Container(height=8),
                     self.api_stats_text,
                     ft.Container(height=24),

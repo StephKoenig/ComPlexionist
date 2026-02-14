@@ -186,6 +186,9 @@ Config file is searched in: exe directory → current directory → `~/.complexi
 - Avoid line-ending churn on Windows.
 - One logical change per commit.
 
+### Planning sessions → write a spec
+Whenever we do a planning session (plan mode), always write the finalised specification into `docs/` as a named document (e.g., `docs/countdown timer spec.md`). This ensures we have a durable reference if context is lost or the session is interrupted.
+
 ### Compile/test locally after changes
 Preferred loop:
 1. Make a small, targeted change.
