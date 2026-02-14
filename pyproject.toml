@@ -41,6 +41,8 @@ dev = [
     "pytest-asyncio>=0.26.0",
     "ruff>=0.14.0",
     "mypy>=1.19.0",
+    "types-PyYAML",
+    "types-requests",
     "pyinstaller>=6.18.0",
 ]
 
@@ -86,3 +88,14 @@ python_version = "3.11"
 warn_return_any = true
 warn_unused_ignores = true
 disallow_untyped_defs = true
+
+# Flet type stubs are incomplete/inaccurate — suppress GUI module noise
+# so mypy only reports real issues in business logic
+[[tool.mypy.overrides]]
+module = "complexionist.gui.*"
+disable_error_code = ["arg-type", "assignment", "attr-defined", "call-arg", "return-value", "misc", "truthy-function"]
+
+# plexapi has no type stubs — suppress import-untyped for modules that use it
+[[tool.mypy.overrides]]
+module = "complexionist.plex.*"
+disable_error_code = ["import-untyped"]

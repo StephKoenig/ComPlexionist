@@ -77,6 +77,14 @@ class BaseAPIClient:
         self._cache = cache
         self._client: httpx.Client | None = None
 
+    @property
+    def client(self) -> httpx.Client:
+        """Return the active HTTP client, raising if not connected."""
+        if self._client is None:
+            msg = f"{self._api_name} client is not connected. Use as context manager."
+            raise RuntimeError(msg)
+        return self._client
+
     def _parse_date(self, date_str: str | None) -> date | None:
         """Parse an ISO-format date string."""
         return parse_date(date_str)

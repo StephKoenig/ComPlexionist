@@ -59,9 +59,7 @@ jobs:
         uses: astral-sh/setup-uv@v5
 
       - name: Install dependencies
-        run: |
-          uv pip install --system -e ".[dev]"
-          uv pip install --system types-PyYAML types-requests
+        run: uv pip install --system -e ".[dev]"
 
       - name: Run MyPy
-        run: mypy src/complexionist --ignore-missing-imports
+        run: mypy src/complexionist

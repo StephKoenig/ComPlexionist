@@ -104,12 +104,10 @@ def _suppress_windows_close_error() -> None:
         loop.default_exception_handler(context)
 
     # Install the handler for any future event loops
-    asyncio.set_event_loop_policy(
-        _SuppressingEventLoopPolicy(custom_exception_handler)  # type: ignore[arg-type]
-    )
+    asyncio.set_event_loop_policy(_SuppressingEventLoopPolicy(custom_exception_handler))
 
 
-class _SuppressingEventLoopPolicy(asyncio.DefaultEventLoopPolicy):  # type: ignore[name-defined]
+class _SuppressingEventLoopPolicy(asyncio.DefaultEventLoopPolicy):
     """Event loop policy that installs a custom exception handler."""
 
     def __init__(
@@ -676,7 +674,7 @@ def run_app(web_mode: bool = False) -> None:
     # Try to find assets directory - check multiple locations
     if getattr(sys, "frozen", False):
         # Running as PyInstaller bundle - assets are in the temp extraction dir
-        assets_dir = str(Path(sys._MEIPASS) / "assets")  # type: ignore[attr-defined]
+        assets_dir = str(Path(sys._MEIPASS) / "assets")  # noqa: SLF001  # PyInstaller attr
     else:
         # Running from source - assets are relative to project root
         assets_dir = str(Path(__file__).parent.parent.parent.parent / "assets")

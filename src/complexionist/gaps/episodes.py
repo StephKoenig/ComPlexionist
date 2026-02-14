@@ -162,8 +162,9 @@ class EpisodeGapFinder:
                 series_info = self.tvdb.get_series(show.tvdb_id)  # type: ignore[arg-type]
                 poster_url = series_info.image
                 tvdb_episodes = self._fetch_tvdb_episodes(
-                    show.tvdb_id, series_status=series_info.status
-                )  # type: ignore[arg-type]
+                    show.tvdb_id,  # type: ignore[arg-type]
+                    series_status=series_info.status,
+                )
             except TVDBNotFoundError:
                 # Show not found on TVDB, skip
                 continue

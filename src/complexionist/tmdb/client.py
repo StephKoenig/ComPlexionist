@@ -122,7 +122,7 @@ class TMDBClient(BaseAPIClient):
         # Cache miss - making API call
         self._record_cache_miss("tmdb", "tmdb_movie")
 
-        response = self._client.get(f"/movie/{movie_id}")
+        response = self.client.get(f"/movie/{movie_id}")
         data = self._handle_response(response)
 
         # Parse the response
@@ -191,7 +191,7 @@ class TMDBClient(BaseAPIClient):
         # Cache miss - making API call
         self._record_cache_miss("tmdb", "tmdb_collection")
 
-        response = self._client.get(f"/collection/{collection_id}")
+        response = self.client.get(f"/collection/{collection_id}")
         data = self._handle_response(response)
 
         # Parse movies in the collection
@@ -240,7 +240,7 @@ class TMDBClient(BaseAPIClient):
         Returns:
             List of matching collections (basic info only, no parts).
         """
-        response = self._client.get("/search/collection", params={"query": query})
+        response = self.client.get("/search/collection", params={"query": query})
         data = self._handle_response(response)
 
         collections = []
@@ -269,7 +269,7 @@ class TMDBClient(BaseAPIClient):
         """
         try:
             # Use a simple endpoint to test
-            response = self._client.get("/configuration")
+            response = self.client.get("/configuration")
             self._handle_response(response)
             return True
         except httpx.RequestError as e:
