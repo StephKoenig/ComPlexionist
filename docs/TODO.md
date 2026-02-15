@@ -206,35 +206,12 @@ Desktop and local web interface using Flet framework.
 
 ---
 
-### Phase 9b: Browser Extension (v2.1)
-Cross-platform browser extension for Chrome/Firefox.
+### Phase 9b: Browser Extension → [Parrot](https://github.com/StephKoenig/Parrot)
+Moved to a separate repo: **[Parrot](https://github.com/StephKoenig/Parrot)**
 
-**9b.1 Extension Setup**
-- [ ] Create `extension/` directory in repo
-- [ ] `manifest.json` (Chrome Manifest V3)
-- [ ] TypeScript + esbuild build config
-- [ ] Extension popup HTML/CSS
+Parrot is a browser extension that checks if media you're browsing is already in your Plex library. It shows ownership badges on TMDB, IMDb, TVDB, NZBGeek, RARGB, NZBForYou, and PSA pages with deep links back to Plex.
 
-**9b.2 Core Logic (TypeScript)**
-- [ ] Plex API client
-- [ ] TMDB API client
-- [ ] TVDB API client
-- [ ] Gap finding logic
-
-**9b.3 UI Components**
-- [ ] Popup interface (compact mode selection)
-- [ ] Options page (settings/credentials)
-- [ ] Results page (full gap display)
-
-**9b.4 Storage**
-- [ ] Config in `browser.storage.sync` (syncs across devices)
-- [ ] Cache in `browser.storage.local`
-- [ ] IndexedDB for large datasets
-
-**9b.5 Publishing**
-- [ ] Chrome Web Store submission
-- [ ] Firefox Add-ons submission
-- [ ] CI/CD workflow for extension builds
+**Status:** Core functionality complete (8 content scripts, Plex API client, badge/icon system, popup UI). See `Parrot/docs/Parrot TODO.md` for the remaining roadmap (test coverage, episode awareness, additional sites, publishing).
 
 ---
 

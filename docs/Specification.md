@@ -56,12 +56,12 @@ The tool compares your Plex library against authoritative external databases (TM
 
 **Output:**
 ```
-Alien Collection (missing 2 of 6):
-  - Alien³ (1992)
-  - Alien Resurrection (1997)
+Horse Race Collection (missing 2 of 6):
+  - Horses: The Return (1981)
+  - Horse Resurrection (1993)
 
-Terminator Collection (missing 1 of 6):
-  - Terminator: Dark Fate (2019)
+Detective Collection (missing 1 of 6):
+  - Detective: Missing Mirror (2011)
 ```
 
 ---
@@ -93,17 +93,17 @@ Terminator Collection (missing 1 of 6):
 
 **Output:**
 ```
-Breaking Bad (missing 3 episodes):
+Willow World (missing 3 episodes):
   Season 2:
-    - S02E05 - Breakage
-    - S02E06 - Peekaboo
+    - S02E05 - Barking Mad
+    - S02E06 - Green Fields
   Season 4:
-    - S04E11 - Crawl Space
+    - S04E11 - Saw Sequence
 
-The Office (US) (missing 12 episodes):
+The Borders (US) (missing 12 episodes):
   Season 3:
-    - S03E01 - Gay Witch Hunt
-    - S03E02 - The Convention
+    - S03E01 - Heavy Industry
+    - S03E02 - Onwards
     ... and 10 more
 ```
 
