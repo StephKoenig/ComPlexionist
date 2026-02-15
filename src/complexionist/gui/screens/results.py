@@ -683,6 +683,13 @@ class ResultsScreen(BaseScreen):
                         last_num = group_seasons[-1].season_number
                         label = f"Season {first_num} to Season {last_num}"
 
+                    # Air date of the last episode in the last season
+                    last_season_in_group = group_seasons[-1]
+                    if last_season_in_group.missing_episodes:
+                        season_date_str = last_season_in_group.missing_episodes[-1].aired_str
+                    else:
+                        season_date_str = "TBA"
+
                     episodes_column_items.append(
                         ft.Container(
                             content=ft.Row(
@@ -695,6 +702,12 @@ class ResultsScreen(BaseScreen):
                                     ),
                                     ft.Text(
                                         f"(Missing {total_missing_in_group} of {total_missing_in_group})",
+                                        size=12,
+                                        color=ft.Colors.GREY_500,
+                                        expand=True,
+                                    ),
+                                    ft.Text(
+                                        season_date_str,
                                         size=12,
                                         color=ft.Colors.GREY_500,
                                     ),
