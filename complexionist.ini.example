@@ -2,13 +2,22 @@
 # Copy this file to complexionist.ini and fill in your credentials
 # Place next to the exe, in current directory, or in ~/.complexionist/
 
-[plex]
+[plex:0]
+# Server name (auto-detected from Plex on first connection)
+name = Main Server
+
 # Your Plex server URL (including port)
 url = http://localhost:32400
 
 # Your Plex authentication token
 # Find it: https://support.plex.tv/articles/204059436-finding-an-authentication-token-x-plex-token/
 token = your_plex_token_here
+
+# Add more servers by incrementing the index:
+# [plex:1]
+# name = 4K Server
+# url = http://192.168.1.101:32400
+# token = your_other_plex_token_here
 
 [tmdb]
 # Get your API key: https://www.themoviedb.org/settings/api

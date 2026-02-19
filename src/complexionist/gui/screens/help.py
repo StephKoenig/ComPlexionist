@@ -53,8 +53,9 @@ The wizard tests each connection before proceeding. Your settings are saved to `
 ### Starting a Scan
 
 1. Click one of the scan buttons on the home screen
-2. Select the library to scan from the dropdown
-3. Click **Start Scan**
+2. If you have multiple Plex servers, select which server to scan
+3. Select the library to scan from the dropdown
+4. Click **Start Scan**
 
 ### During the Scan
 
@@ -125,6 +126,16 @@ Click the **Export** button on the results screen to:
 ### Theme
 
 Toggle between dark mode (default) and light mode.
+
+### Plex Servers
+
+Manage your Plex server connections:
+- **Add Server** - Enter URL and token, click "Test & Save" to validate and add
+- **Edit** - Click the pencil icon to modify an existing server
+- **Delete** - Click the X icon to remove a server
+- Server names are auto-detected from Plex on successful connection
+
+When scanning, you can choose which server to scan against if you have multiple servers configured.
 
 ### Re-run Setup
 

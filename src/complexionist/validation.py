@@ -54,9 +54,7 @@ class ConnectionTestResult:
         return bool(cfg.tvdb.api_key)
 
 
-def test_plex_server(
-    url: str, token: str
-) -> tuple[bool, str, list[str], list[str]]:
+def test_plex_server(url: str, token: str) -> tuple[bool, str, list[str], list[str]]:
     """Test connection to a specific Plex server.
 
     Args:

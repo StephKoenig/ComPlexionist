@@ -14,11 +14,12 @@ Completing your Plex Media Server libraries.
 ### Desktop GUI (v2.0)
 ComPlexionist now includes a full graphical user interface built with Flet:
 - **Dashboard** with connection status indicators and quick scan buttons
+- **Multi-server support** - configure and manage multiple Plex servers
 - **Scanning screen** with live progress, API stats, and cancel button
 - **Results display** with search, filtering, and grouped collections/shows
 - **Ignore functionality** - click to ignore collections or shows directly from results
 - **Export** to CSV, JSON, or clipboard
-- **Settings panel** with credential editing and ignore list management
+- **Settings panel** with server management, credential editing, and ignore list management
 - **Window state persistence** - remembers size and position
 
 The GUI is the default mode when you run the executable without arguments.
@@ -114,6 +115,7 @@ complexionist --cli              # CLI interactive mode
 complexionist movies             # Scan movies (CLI)
 complexionist tv                 # Scan TV shows (CLI)
 complexionist scan               # Scan both (CLI)
+complexionist movies --server "4K Server"  # Scan specific server
 ```
 
 ![ComPlexionist GUI Scanning ](docs/images/GUI-Scanning.jpg)
@@ -226,6 +228,10 @@ complexionist movies --dry-run
 # Output formats: text (default), json, csv
 complexionist movies --format json
 complexionist tv --format csv
+
+# Select a specific Plex server (by name or index)
+complexionist movies --server "4K Server"
+complexionist tv --server 1
 ```
 
 ## Configuration
@@ -234,9 +240,16 @@ complexionist tv --format csv
 Create a `complexionist.ini` file (next to the exe, in current directory, or in `~/.complexionist/`):
 
 ```ini
-[plex]
+[plex:0]
+name = Main Server
 url = http://your-plex-server:32400
 token = your-plex-token
+
+# Add more servers:
+# [plex:1]
+# name = 4K Server
+# url = http://your-4k-server:32400
+# token = your-4k-token
 
 [tmdb]
 api_key = your-tmdb-api-key

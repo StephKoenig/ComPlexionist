@@ -298,9 +298,7 @@ class SettingsScreen(BaseScreen):
                     save_plex_servers(servers)
 
                     # Update state
-                    self.state.plex_servers = [
-                        {"name": s.name, "url": s.url} for s in servers
-                    ]
+                    self.state.plex_servers = [{"name": s.name, "url": s.url} for s in servers]
 
                     # Rebuild server list UI
                     if self._server_list_container:
@@ -348,9 +346,7 @@ class SettingsScreen(BaseScreen):
                     self.state.active_server_index = 0
 
                 # Update state
-                self.state.plex_servers = [
-                    {"name": s.name, "url": s.url} for s in servers_copy
-                ]
+                self.state.plex_servers = [{"name": s.name, "url": s.url} for s in servers_copy]
 
                 # Rebuild server list
                 if self._server_list_container:

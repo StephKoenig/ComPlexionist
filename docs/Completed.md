@@ -1089,9 +1089,64 @@ If any check fails, the button is disabled with a tooltip explaining why.
 
 ---
 
+## Multi Plex Server Support (2026-02-19)
+
+**Why:** Users with multiple Plex servers (e.g. main + 4K, living room + bedroom) had to manually edit the INI file to switch between servers. This adds first-class support for configuring and managing multiple servers, selecting which one to scan against.
+
+**What we did:**
+
+### Config Model
+- Added `PlexServerConfig` Pydantic model with `name`, `url`, `token` fields
+- Changed `PlexConfig` to hold `servers: list[PlexServerConfig]` with backward-compat `url`/`token` properties
+- INI format uses indexed sections: `[plex:0]`, `[plex:1]`, etc.
+- Old `[plex]` section auto-migrates to `[plex:0]` on load (fully backward-compatible)
+- Added `get_plex_server(index)` and `save_plex_servers(servers)` helper functions
+- Updated `save_default_config()` to write `[plex:0]` format with auto-detected server name
+
+### GUI - Server Management (Settings)
+- New "Plex Servers" section in Settings with server list
+- Status dots (green = connected, grey = not tested) per server
+- Edit (pencil) and Delete (X) buttons per server row
+- Add/edit form with URL, Token, and optional Name fields
+- "Test & Save" button validates connection in background, auto-fills name from Plex `friendlyName`
+- Delete confirmation dialog
+
+### GUI - Server Selection (Scan Dialog)
+- Server dropdown in scan dialog (only shown when 2+ servers configured)
+- Changing server refreshes movie/TV library dropdowns for that server
+- Active server persisted in library state
+
+### GUI - Dashboard
+- Shows server count in connection status when multiple servers configured
+
+### CLI
+- Added `--server` / `-s` flag to `movies`, `tv`, and `scan` commands
+- Resolves by name (case-insensitive) or index
+- Updated `config show` to display all servers with indices
+
+### Supporting Changes
+- `LibrarySelection` dataclass: added `active_server: int = 0` field
+- `AppState`: added `plex_servers` list and `active_server_index`
+- `validation.py`: added `test_plex_server(url, token)` function, updated `test_connections()` with optional URL/token overrides
+- Onboarding: saves as `[plex:0]` format, captures `friendlyName`
+- New file: `src/complexionist/gui/library_state.py` for library selection persistence
+
+**Key files:**
+- `src/complexionist/config.py` - Multi-server config model and INI persistence
+- `src/complexionist/gui/screens/settings.py` - Server management UI
+- `src/complexionist/gui/app.py` - Scan dialog server selector
+- `src/complexionist/gui/library_state.py` - Library + server selection persistence (new)
+- `src/complexionist/cli.py` - `--server` flag and server resolution
+- `src/complexionist/validation.py` - Individual server testing
+- `src/complexionist/gui/screens/onboarding.py` - Saves as `[plex:0]`
+- `src/complexionist/gui/screens/dashboard.py` - Server count display
+- `src/complexionist/gui/state.py` - Server state fields
+
+---
+
 ## Current Status
 
-**Version:** 2.0.x (Phase 9a complete with consolidation, distribution, and code review improvements)
+**Version:** 2.0.x (Phase 10 complete — multi Plex server support)
 
 **Features complete:**
 - Movie collection gap detection with TMDB
@@ -1110,6 +1165,12 @@ If any check fails, the button is disabled with a tooltip explaining why.
 - INI configuration format with fallback support
 - Fast startup with lazy module loading
 - Clean MyPy type checking (no errors)
+- **Multi Plex Server Support**
+  - Configure multiple servers via indexed `[plex:0]`, `[plex:1]` INI sections
+  - Server management UI in Settings (add/edit/delete with connection testing)
+  - Server selector dropdown in scan dialog
+  - CLI `--server` flag to select server by name or index
+  - Backward-compatible migration from old `[plex]` format
 - **Desktop GUI with Flet framework**
   - Dashboard with connection status
   - Scanning with live progress
@@ -1118,7 +1179,7 @@ If any check fails, the button is disabled with a tooltip explaining why.
   - Collection folder organization with safety checks
   - Open media folder directly from results (Windows/Mac/Linux)
   - Path mapping for network/NAS access
-  - Settings panel with path mapping configuration
+  - Settings panel with server management, path mapping, and ignore lists
   - Centralized error handling with friendly messages
   - Window state persistence (size/position saved to INI)
   - Clean window close handling (no errors on Windows)
@@ -1131,4 +1192,4 @@ If any check fails, the button is disabled with a tooltip explaining why.
 - **BaseAPIClient** architecture reducing TMDB/TVDB code duplication
 - **Shared UI builders** reducing results screen duplication
 
-**Next:** Phase 9b (browser extension) or further polish
+**Next:** Further polish or additional features

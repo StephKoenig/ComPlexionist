@@ -164,9 +164,16 @@ uv run complexionist cache stats
 
 ### Configuration (complexionist.ini)
 ```ini
-[plex]
+[plex:0]
+name = Main Server
 url = http://your-plex-server:32400
 token = your-plex-token
+
+# Additional servers use incrementing indices:
+# [plex:1]
+# name = 4K Server
+# url = http://your-4k-server:32400
+# token = your-4k-token
 
 [tmdb]
 api_key = your-tmdb-api-key

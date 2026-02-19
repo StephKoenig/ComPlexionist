@@ -1,34 +1,43 @@
-# ComPlexionist v2.0.94 - Robustness & Performance
+# ComPlexionist v2.0.96 - Multi Plex Server Support
 
 **Release Date:** February 2026
-**Version:** 2.0.94
+**Version:** 2.0.96
 
 ---
 
 ## Overview
 
-This release adds new features for organizing your media, shows TV series status indicators, dramatically improves caching for ended shows, and addresses findings from a comprehensive code review — improving thread safety, reducing code duplication, and optimizing the executable size.
+This release adds support for managing multiple Plex servers. Users with more than one server (e.g. main + 4K, living room + bedroom) can now configure all of them in Settings and choose which server to scan against.
 
 ---
 
 ## New Features
 
-### Collection Folder Organization
+### Multi Plex Server Support
+Configure and manage multiple Plex servers from within the app:
+- **Server Management in Settings** - Add, edit, and delete Plex servers with connection testing and auto-detected server names
+- **Server Selection** - Choose which server to scan against in the scan dialog (dropdown appears when 2+ servers configured)
+- **CLI --server Flag** - Select a server by name or index from the command line: `complexionist movies --server "4K Server"`
+- **Backward Compatible** - Existing `[plex]` config sections automatically migrate to the new `[plex:0]` indexed format
+
+### Previous Release Features (v2.0.94)
+
+#### Collection Folder Organization
 Organize movies from a collection into a dedicated collection folder:
 - **Organize Button** - Orange button appears on movie collections when files are scattered
 - **Preview Dialog** - Shows current file locations and the target collection folder
 - **Move Files** - One-click to move all movie files into the collection folder
 - **Safety Checks** - Button disabled with explanation if library folder is not writable, duplicate filenames would conflict, or files already exist in target folder
 
-### Open Media Folder from Results
+#### Open Media Folder from Results
 - **Folder Button** - Opens the local folder containing your media files directly from results
 - **Path Mapping** - Configure Plex-to-local path mapping for NAS/network access in Settings
 
-### TV Show Status Indicator
+#### TV Show Status Indicator
 - Shows "Continuing", "Ended", "Cancelled" etc. as a colored chip next to each TV show in results
 - Helps you decide whether to pursue missing episodes
 
-### Smart Cache TTLs for Ended Shows
+#### Smart Cache TTLs for Ended Shows
 - Ended/cancelled TV shows are now cached for **1 year** (vs 24 hours for continuing shows)
 - Series info for ended shows also cached for 1 year (vs 7 days)
 - Dramatically reduces API calls on subsequent scans for large TV libraries
@@ -64,6 +73,11 @@ Organize movies from a collection into a dedicated collection folder:
 ---
 
 ## Upgrade Notes
+
+### From v2.0.94 or earlier
+- Your existing `[plex]` config section is automatically migrated to `[plex:0]` — no manual changes needed
+- Add additional servers in Settings after upgrading
+- Cache files and ignore lists are unaffected
 
 ### From v2.0.81 or earlier
 - No configuration changes needed

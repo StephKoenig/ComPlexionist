@@ -218,22 +218,16 @@ def run_app(web_mode: bool = False) -> None:
             server = cfg.plex.servers[new_index]
 
             def do_refresh() -> None:
-                success, _, movie_libs, tv_libs = test_plex_server(
-                    server.url, server.token
-                )
+                success, _, movie_libs, tv_libs = test_plex_server(server.url, server.token)
 
                 async def update_ui() -> None:
                     if success:
                         # Update library dropdowns
                         if movie_dd and scan_type in (ScanType.MOVIES, ScanType.BOTH):
-                            movie_dd.options = [
-                                ft.dropdown.Option(lib) for lib in movie_libs
-                            ]
+                            movie_dd.options = [ft.dropdown.Option(lib) for lib in movie_libs]
                             movie_dd.value = movie_libs[0] if movie_libs else None
                         if tv_dd and scan_type in (ScanType.TV, ScanType.BOTH):
-                            tv_dd.options = [
-                                ft.dropdown.Option(lib) for lib in tv_libs
-                            ]
+                            tv_dd.options = [ft.dropdown.Option(lib) for lib in tv_libs]
                             tv_dd.value = tv_libs[0] if tv_libs else None
                     page.update()
 
@@ -807,9 +801,7 @@ def _test_connections(state: AppState, cfg: object) -> None:
         state.active_server_index = 0
 
     # Populate server list in state
-    state.plex_servers = [
-        {"name": s.name, "url": s.url} for s in config.plex.servers
-    ]
+    state.plex_servers = [{"name": s.name, "url": s.url} for s in config.plex.servers]
 
     # Test connections using the active server's credentials
     plex_url = None

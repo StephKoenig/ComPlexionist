@@ -278,11 +278,13 @@ def _load_ini_config(path: Path) -> dict[str, Any]:
         url = parser.get("plex", "url", fallback=None)
         token = parser.get("plex", "token", fallback=None)
         if url or token:
-            plex_servers.append({
-                "name": "Plex Server",
-                "url": url or "",
-                "token": token or "",
-            })
+            plex_servers.append(
+                {
+                    "name": "Plex Server",
+                    "url": url or "",
+                    "token": token or "",
+                }
+            )
 
     if plex_servers:
         config["plex"] = {"servers": plex_servers}

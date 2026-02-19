@@ -143,6 +143,19 @@ Fix type errors to make MyPy pass cleanly in CI.
 
 ## Upcoming Phases
 
+### Phase 10: Multi Plex Server Support ✓
+- [x] Config model with `PlexServerConfig` and indexed `[plex:0]`, `[plex:1]` INI sections
+- [x] Backward-compatible migration from old `[plex]` format
+- [x] Library state persistence with `active_server` field
+- [x] Server management UI in Settings (add/edit/delete with connection testing)
+- [x] Server selector dropdown in scan dialog (visible with 2+ servers)
+- [x] Dashboard shows active server count
+- [x] CLI `--server` flag for movies, tv, scan commands (resolve by name or index)
+- [x] Onboarding saves as `[plex:0]` format
+- [x] Validation updated for multi-server
+
+---
+
 ### Phase 9a: Flet GUI (v2.0) - IN PROGRESS
 Desktop and local web interface using Flet framework.
 

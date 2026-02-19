@@ -156,9 +156,16 @@ Location search order (v1.2+):
 
 **Format: `complexionist.ini` (INI style)**
 ```ini
-[plex]
+[plex:0]
+name = Main Server
 url = http://192.168.1.100:32400
 token = YOUR_PLEX_TOKEN
+
+# Additional servers:
+# [plex:1]
+# name = 4K Server
+# url = http://192.168.1.101:32400
+# token = YOUR_OTHER_TOKEN
 
 [tmdb]
 api_key = YOUR_TMDB_API_KEY
@@ -211,6 +218,10 @@ complexionist tv [--library "TV Shows"] [--dry-run]
 
 # Scan both
 complexionist scan [--dry-run]
+
+# Server selection (multi-server)
+complexionist movies --server "4K Server"  # by name
+complexionist tv --server 1                # by index
 
 # Configuration
 complexionist config show      # Display current configuration
@@ -367,7 +378,6 @@ complexionist cache refresh    # Invalidate fingerprints for re-fetch
 
 - **Notifications:** Alert when new movies added to collections
 - **Watchlist integration:** Suggest missing content based on watchlists
-- **Multiple servers:** Support scanning multiple Plex servers
 - **Radarr/Sonarr integration:** Add missing content to download queues
 - **TMDB for TV:** Alternative to TVDB for episode data
 
@@ -420,6 +430,7 @@ complexionist/
 │           ├── strings.py      # UI strings (i18n ready)
 │           ├── errors.py       # GUI error display helpers
 │           ├── window_state.py # Window size/position persistence
+│           ├── library_state.py # Library + server selection persistence
 │           └── screens/        # Screen components
 │               ├── dashboard.py
 │               ├── scanning.py
@@ -504,6 +515,7 @@ complexionist/
 - [x] Settings panel with credential editing and ignore list management
 - [x] Ignore collections/shows directly from results (saves to INI)
 - [x] Window state persistence (size/position saved to config)
+- [x] Multi Plex server support (add/edit/delete servers, select for scan, CLI --server flag)
 - [x] Clean window close handling (no errors on Windows)
 - [x] Centralized error handling with friendly messages
 - [x] PyInstaller single-file executable (~55 MB)
@@ -554,6 +566,7 @@ complexionist/
    - `--cli` - Use CLI mode (GUI is default)
    - `--gui` - Launch GUI (default behavior)
    - `--web` - Launch GUI in browser mode
+   - `--server` / `-s` - Select Plex server by name or index (multi-server)
    - `--library` / `-l` - Select specific library
    - `--dry-run` - Validate config without scanning
    - `--no-csv` - Disable automatic CSV output
