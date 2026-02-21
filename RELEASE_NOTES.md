@@ -1,7 +1,7 @@
-# ComPlexionist v2.0.96 - Multi Plex Server Support
+# ComPlexionist v2.0.105 - Multi Plex Server Support
 
 **Release Date:** February 2026
-**Version:** 2.0.96
+**Version:** 2.0.105
 
 ---
 
