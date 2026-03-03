@@ -6,6 +6,37 @@ See `TODO.md` for forward-looking work items.
 
 ---
 
+## Complete Collection Organization & Performance (2026-03-03)
+
+**Why:** When a movie collection was fully owned, it disappeared from results — so there was no way to organize scattered files. Also, the organize dialog was sluggish due to full-page re-renders on every interaction.
+
+**What we did:**
+- Added `is_complete` flag and `movies_in_different_folders` property to `CollectionGap` model
+- Complete-but-disorganized collections now appear in results with "Complete X of X" subtitle
+- Added "Organised" (green tick) indicator for collections with movies already grouped
+- Folder detection handles two Plex layouts: `Library/CollectionFolder/file.mkv` and `Library/CollectionFolder/MovieFolder/file.mkv`
+- Refactored organize dialog to use `dialog.update()` instead of `page.update()`, eliminating full-page re-renders
+- Pre-created dialog and snackbar in overlay during `build()` for instant open/close
+- Added background threading for safety checks with in-dialog progress
+- Added move progress bar with per-file status in the same dialog
+- Added double-click protection and modal focus
+- Removed unused `overview` fields from TMDB/TVDB/gap models to reduce cache size
+
+**Key files:**
+- `src/complexionist/gaps/models.py` — `movies_in_different_folders`, `is_complete`
+- `src/complexionist/gaps/movies.py` — complete collection detection in gap finder
+- `src/complexionist/gui/screens/results.py` — organize dialog refactor, targeted updates
+- `src/complexionist/output/__init__.py` — CLI output for complete collections
+- `src/complexionist/tmdb/models.py`, `tvdb/models.py` — overview field removal
+- `tests/test_gaps.py` — 7 new tests for folder detection and complete collections
+
+**Gotchas:**
+- `page.update()` diffs the entire control tree — on results pages with hundreds of ExpansionTiles this takes 4-5 seconds. Use `control.update()` for targeted updates wherever possible.
+- Setting `on_click` from a background thread doesn't register with Flutter — set handlers on the main thread and use flags/closures for state.
+- Pre-creating overlay controls (dialogs, snackbars) during `build()` avoids repeated `page.update()` costs.
+
+---
+
 ## Project Setup and Documentation (2025-01-24)
 
 **Why:** Establish project foundation with research and documentation before implementation.

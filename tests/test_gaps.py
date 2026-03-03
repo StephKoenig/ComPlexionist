@@ -11,6 +11,7 @@ from complexionist.gaps import (
     MissingMovie,
     MovieGapFinder,
     MovieGapReport,
+    OwnedMovie,
     SeasonGap,
     ShowGap,
     parse_multi_episode_filename,
@@ -128,6 +129,173 @@ class TestGapModels:
         )
         # 10 total - 1 with gaps = 9 complete
         assert report.complete_collections == 9
+
+    def test_complete_collections_with_disorganized(self) -> None:
+        """Test complete_collections count includes disorganized as complete."""
+        report = MovieGapReport(
+            library_name="Movies",
+            total_movies_scanned=100,
+            movies_with_tmdb_id=95,
+            movies_in_collections=50,
+            unique_collections=10,
+            collections_with_gaps=[
+                CollectionGap(
+                    collection_id=1,
+                    collection_name="Incomplete",
+                    total_movies=5,
+                    owned_movies=3,
+                    missing_movies=[MissingMovie(tmdb_id=1, title="Movie 1")],
+                ),
+                CollectionGap(
+                    collection_id=2,
+                    collection_name="Disorganized",
+                    total_movies=3,
+                    owned_movies=3,
+                    missing_movies=[],
+                    is_complete=True,
+                ),
+            ],
+        )
+        # 10 total - 1 incomplete = 9 complete (disorganized counts as complete)
+        assert report.complete_collections == 9
+
+    def test_movies_in_different_folders_same_grandparent(self) -> None:
+        """Test movies in same grandparent directory are organized."""
+        gap = CollectionGap(
+            collection_id=1,
+            collection_name="Die Hard Collection",
+            total_movies=2,
+            owned_movies=2,
+            owned_movie_list=[
+                OwnedMovie(
+                    tmdb_id=1,
+                    title="Die Hard",
+                    file_path="/volume1/Movies/Die Hard (1988)/Die Hard (1988).mkv",
+                ),
+                OwnedMovie(
+                    tmdb_id=2,
+                    title="Die Hard 2",
+                    file_path="/volume1/Movies/Die Hard 2 (1990)/Die Hard 2 (1990).mkv",
+                ),
+            ],
+            library_locations=["/volume1/Movies"],
+        )
+        # Same grandparent (/volume1/Movies) but it IS the library root -> disorganized
+        assert gap.movies_in_different_folders is True
+
+    def test_movies_in_different_folders_organized(self) -> None:
+        """Test movies in collection subfolder are organized."""
+        gap = CollectionGap(
+            collection_id=1,
+            collection_name="Die Hard Collection",
+            total_movies=2,
+            owned_movies=2,
+            owned_movie_list=[
+                OwnedMovie(
+                    tmdb_id=1,
+                    title="Die Hard",
+                    file_path="/volume1/Movies/Die Hard/Die Hard (1988)/Die Hard (1988).mkv",
+                ),
+                OwnedMovie(
+                    tmdb_id=2,
+                    title="Die Hard 2",
+                    file_path="/volume1/Movies/Die Hard/Die Hard 2 (1990)/Die Hard 2 (1990).mkv",
+                ),
+            ],
+            library_locations=["/volume1/Movies"],
+        )
+        # Same grandparent (/volume1/Movies/Die Hard) which is NOT library root -> organized
+        assert gap.movies_in_different_folders is False
+
+    def test_movies_in_different_folders_scattered(self) -> None:
+        """Test movies in different grandparent directories are disorganized."""
+        gap = CollectionGap(
+            collection_id=1,
+            collection_name="Die Hard Collection",
+            total_movies=2,
+            owned_movies=2,
+            owned_movie_list=[
+                OwnedMovie(
+                    tmdb_id=1,
+                    title="Die Hard",
+                    file_path="/volume1/Movies/Die Hard/Die Hard (1988)/Die Hard (1988).mkv",
+                ),
+                OwnedMovie(
+                    tmdb_id=2,
+                    title="Die Hard 2",
+                    file_path="/volume1/Movies/Die Hard 2 (1990)/Die Hard 2 (1990).mkv",
+                ),
+            ],
+            library_locations=["/volume1/Movies"],
+        )
+        # Different grandparents -> disorganized
+        assert gap.movies_in_different_folders is True
+
+    def test_movies_in_different_folders_same_parent(self) -> None:
+        """Test movies directly in same folder (no movie subfolders) are organized."""
+        gap = CollectionGap(
+            collection_id=1,
+            collection_name="Garage Sale Mysteries Collection",
+            total_movies=6,
+            owned_movies=6,
+            owned_movie_list=[
+                OwnedMovie(
+                    tmdb_id=1,
+                    title="Garage Sale Mysteries",
+                    file_path="/volume1/Movies/Garage Sale Mysteries/Garage Sale Mysteries (2013).mkv",
+                ),
+                OwnedMovie(
+                    tmdb_id=2,
+                    title="Garage Sale Mysteries 2",
+                    file_path="/volume1/Movies/Garage Sale Mysteries/Garage Sale Mysteries 2 (2015).mkv",
+                ),
+            ],
+            library_locations=["/volume1/Movies"],
+        )
+        # Same parent (/volume1/Movies/Garage Sale Mysteries) not library root -> organized
+        assert gap.movies_in_different_folders is False
+
+    def test_movies_in_different_folders_same_parent_library_root(self) -> None:
+        """Test movies directly in library root (no subfolders at all) are disorganized."""
+        gap = CollectionGap(
+            collection_id=1,
+            collection_name="Test Collection",
+            total_movies=2,
+            owned_movies=2,
+            owned_movie_list=[
+                OwnedMovie(
+                    tmdb_id=1,
+                    title="Movie 1",
+                    file_path="/volume1/Movies/Movie 1 (2020).mkv",
+                ),
+                OwnedMovie(
+                    tmdb_id=2,
+                    title="Movie 2",
+                    file_path="/volume1/Movies/Movie 2 (2021).mkv",
+                ),
+            ],
+            library_locations=["/volume1/Movies"],
+        )
+        # Same parent but it IS the library root -> disorganized
+        assert gap.movies_in_different_folders is True
+
+    def test_movies_in_different_folders_single_movie(self) -> None:
+        """Test single movie cannot be disorganized."""
+        gap = CollectionGap(
+            collection_id=1,
+            collection_name="Test",
+            total_movies=1,
+            owned_movies=1,
+            owned_movie_list=[
+                OwnedMovie(
+                    tmdb_id=1,
+                    title="Movie 1",
+                    file_path="/volume1/Movies/Movie 1 (2020)/Movie 1 (2020).mkv",
+                ),
+            ],
+            library_locations=["/volume1/Movies"],
+        )
+        assert gap.movies_in_different_folders is False
 
 
 class TestMovieGapFinder:

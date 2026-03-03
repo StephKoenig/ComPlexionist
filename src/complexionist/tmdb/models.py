@@ -11,7 +11,6 @@ class TMDBMovie(BaseModel):
     id: int
     title: str
     release_date: date | None = None
-    overview: str = ""
     poster_path: str | None = None
 
     @property
@@ -58,7 +57,6 @@ class TMDBCollection(BaseModel):
 
     id: int
     name: str
-    overview: str = ""
     poster_path: str | None = None
     backdrop_path: str | None = None
     parts: list[TMDBMovie] = Field(default_factory=list)
@@ -80,7 +78,6 @@ class TMDBMovieDetails(BaseModel):
     id: int
     title: str
     release_date: date | None = None
-    overview: str = ""
     poster_path: str | None = None
     belongs_to_collection: TMDBCollectionInfo | None = None
 

@@ -34,7 +34,6 @@ class MissingMovie(BaseModel):
     title: str
     release_date: date | None = None
     year: int | None = None
-    overview: str = ""
 
     @property
     def display_title(self) -> str:
@@ -50,7 +49,7 @@ class MissingMovie(BaseModel):
 
 
 class CollectionGap(BaseModel):
-    """A collection with missing movies."""
+    """A collection with missing movies or needing organization."""
 
     collection_id: int
     collection_name: str
@@ -60,6 +59,7 @@ class CollectionGap(BaseModel):
     owned_movie_list: list[OwnedMovie] = Field(default_factory=list)
     missing_movies: list[MissingMovie] = Field(default_factory=list)
     library_locations: list[str] = Field(default_factory=list)  # Library folder paths from Plex
+    is_complete: bool = False  # True = all movies owned, shown only for organization
 
     @property
     def tmdb_url(self) -> str:
@@ -136,6 +136,49 @@ class CollectionGap(BaseModel):
         return False
 
     @property
+    def movies_in_different_folders(self) -> bool:
+        """Check if owned movies are in different parent folders.
+
+        Returns True if movies are NOT grouped into a single collection folder.
+
+        Handles two common Plex layouts:
+        - Library/CollectionFolder/file.mkv (movies directly in folder)
+        - Library/CollectionFolder/MovieFolder/file.mkv (movies in subfolders)
+
+        In either case, if all movies share a common non-library-root ancestor,
+        they are considered organized (returns False).
+        """
+        movies_with_paths = [m for m in self.owned_movie_list if m.file_path]
+        if len(movies_with_paths) < 2:
+            return False
+
+        def _is_library_root(folder: str) -> bool:
+            return any(Path(folder) == Path(loc) for loc in self.library_locations)
+
+        # First check: are all movies in the same parent directory?
+        parents: set[str] = set()
+        for movie in movies_with_paths:
+            parents.add(str(Path(movie.file_path).parent))  # type: ignore[arg-type]
+
+        if len(parents) == 1:
+            shared_parent = parents.pop()
+            # Same parent but it's the library root → loose files, not organized
+            return _is_library_root(shared_parent)
+
+        # Different parents — check grandparents (subfolders under one collection folder)
+        grandparents: set[str] = set()
+        for movie in movies_with_paths:
+            grandparents.add(str(Path(movie.file_path).parent.parent))  # type: ignore[arg-type]
+
+        if len(grandparents) == 1:
+            shared = grandparents.pop()
+            # All under one grandparent — if it's the library root, not organized
+            return _is_library_root(shared)
+
+        # Movies are scattered across unrelated directories
+        return True
+
+    @property
     def collection_folder_target(self) -> str | None:
         """Get the target path where a collection folder should be created.
 
@@ -187,8 +230,9 @@ class MovieGapReport(BaseModel):
 
     @property
     def complete_collections(self) -> int:
-        """Number of collections that are complete."""
-        return self.unique_collections - len(self.collections_with_gaps)
+        """Number of collections that are complete (including disorganized)."""
+        incomplete = sum(1 for g in self.collections_with_gaps if not g.is_complete)
+        return self.unique_collections - incomplete
 
 
 # ============================================================================
@@ -204,7 +248,6 @@ class MissingEpisode(BaseModel):
     episode_number: int
     title: str | None = None
     aired: date | None = None
-    overview: str = ""
 
     @property
     def episode_code(self) -> str:

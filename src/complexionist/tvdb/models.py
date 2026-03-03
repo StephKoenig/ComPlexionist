@@ -14,7 +14,6 @@ class TVDBEpisode(BaseModel):
     season_number: int = Field(alias="seasonNumber")
     episode_number: int = Field(alias="number")
     aired: date | None = None
-    overview: str | None = None
     runtime: int | None = None
 
     model_config = {"populate_by_name": True}
@@ -50,7 +49,6 @@ class TVDBSeries(BaseModel):
     slug: str | None = None
     status: str | None = None  # e.g., "Continuing", "Ended"
     first_aired: date | None = Field(default=None, alias="firstAired")
-    overview: str | None = None
     year: int | None = None
     image: str | None = None  # Full URL to poster image
 

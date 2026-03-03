@@ -99,8 +99,9 @@ class MovieGapFinder:
             collection_ids, owned_tmdb_ids, tmdb_to_file_path, library_locations
         )
 
-        # Sort gaps by missing count (most missing first)
-        gaps.sort(key=lambda g: g.missing_count, reverse=True)
+        # Sort: incomplete collections first (by missing count desc),
+        # then complete-but-disorganized collections (alphabetically)
+        gaps.sort(key=lambda g: (g.is_complete, -g.missing_count, g.collection_name))
 
         return MovieGapReport(
             library_name=lib_name,
@@ -223,7 +224,33 @@ class MovieGapFinder:
             missing_ids = collection_movie_ids - owned_tmdb_ids
 
             if not missing_ids:
-                # Collection is complete
+                # Collection is complete — check if it needs organizing
+                owned_movies_list = [
+                    OwnedMovie(
+                        tmdb_id=m.id,
+                        title=m.title,
+                        year=m.year,
+                        file_path=tmdb_to_file_path.get(m.id),
+                    )
+                    for m in movies_to_check
+                    if m.id in owned_in_collection
+                ]
+                owned_movies_list.sort(key=lambda m: m.year or 9999)
+
+                gap = CollectionGap(
+                    collection_id=collection_id,
+                    collection_name=collection.name,
+                    total_movies=len(movies_to_check),
+                    owned_movies=len(owned_in_collection),
+                    poster_path=collection.poster_path,
+                    owned_movie_list=owned_movies_list,
+                    missing_movies=[],
+                    library_locations=library_locations,
+                    is_complete=True,
+                )
+
+                if gap.movies_in_different_folders:
+                    gaps.append(gap)
                 continue
 
             # Skip collections where user doesn't own enough movies
@@ -252,7 +279,6 @@ class MovieGapFinder:
                     title=m.title,
                     release_date=m.release_date,
                     year=m.year,
-                    overview=m.overview,
                 )
                 for m in movies_to_check
                 if m.id in missing_ids

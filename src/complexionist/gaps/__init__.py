@@ -7,6 +7,7 @@ from complexionist.gaps.models import (
     MissingEpisode,
     MissingMovie,
     MovieGapReport,
+    OwnedMovie,
     SeasonGap,
     ShowGap,
 )
@@ -18,6 +19,7 @@ __all__ = [
     "MovieGapReport",
     "CollectionGap",
     "MissingMovie",
+    "OwnedMovie",
     # Episode gap detection
     "EpisodeGapFinder",
     "EpisodeGapReport",

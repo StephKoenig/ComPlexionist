@@ -343,7 +343,6 @@ class EpisodeGapFinder:
                             episode_number=tvdb_ep.episode_number,
                             title=tvdb_ep.name,
                             aired=tvdb_ep.aired,
-                            overview=tvdb_ep.overview or "",
                         )
                     )
 

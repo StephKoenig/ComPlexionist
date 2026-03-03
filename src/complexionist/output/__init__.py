@@ -122,6 +122,7 @@ class MovieReportFormatter(ReportFormatter):
                     "url": gap.tmdb_url,
                     "total": gap.total_movies,
                     "owned": gap.owned_movies,
+                    "is_complete": gap.is_complete,
                     "missing": [
                         {
                             "tmdb_id": m.tmdb_id,
@@ -178,28 +179,42 @@ class MovieReportFormatter(ReportFormatter):
             console.print("[green]All collections are complete![/green]")
             return
 
-        console.print(
-            f"[yellow]Found {self.report.total_missing} missing movies in "
-            f"{len(self.report.collections_with_gaps)} collections[/yellow]"
-        )
+        incomplete = [g for g in self.report.collections_with_gaps if not g.is_complete]
+        disorganized = [g for g in self.report.collections_with_gaps if g.is_complete]
+
+        if incomplete:
+            console.print(
+                f"[yellow]Found {self.report.total_missing} missing movies in "
+                f"{len(incomplete)} collections[/yellow]"
+            )
+        if disorganized:
+            console.print(
+                f"[orange3]{len(disorganized)} complete collections need organizing[/orange3]"
+            )
         console.print()
 
         for gap in self.report.collections_with_gaps:
-            console.print(
-                f"[bold]{gap.collection_name}[/bold] "
-                f"(missing {gap.missing_count} of {gap.total_movies})"
-            )
+            if gap.is_complete:
+                console.print(
+                    f"[bold]{gap.collection_name}[/bold] "
+                    f"[orange3](complete {gap.owned_movies} of {gap.total_movies})[/orange3]"
+                )
+            else:
+                console.print(
+                    f"[bold]{gap.collection_name}[/bold] "
+                    f"(missing {gap.missing_count} of {gap.total_movies})"
+                )
 
-            max_display = 5 if not verbose else len(gap.missing_movies)
-            displayed = gap.missing_movies[:max_display]
+                max_display = 5 if not verbose else len(gap.missing_movies)
+                displayed = gap.missing_movies[:max_display]
 
-            for movie in displayed:
-                year_str = f" ({movie.year})" if movie.year else ""
-                console.print(f"  - {movie.title}{year_str}")
+                for movie in displayed:
+                    year_str = f" ({movie.year})" if movie.year else ""
+                    console.print(f"  - {movie.title}{year_str}")
 
-            remaining = len(gap.missing_movies) - max_display
-            if remaining > 0:
-                console.print(f"  [dim]... and {remaining} more[/dim]")
+                remaining = len(gap.missing_movies) - max_display
+                if remaining > 0:
+                    console.print(f"  [dim]... and {remaining} more[/dim]")
 
             console.print()
 
@@ -226,8 +241,10 @@ class MovieReportFormatter(ReportFormatter):
 
         from complexionist.statistics import calculate_movie_score
 
-        # Calculate score
-        total_owned = sum(g.owned_movies for g in self.report.collections_with_gaps)
+        # Calculate score (only incomplete collections affect score)
+        incomplete = [g for g in self.report.collections_with_gaps if not g.is_complete]
+        disorganized = [g for g in self.report.collections_with_gaps if g.is_complete]
+        total_owned = sum(g.owned_movies for g in incomplete)
         total_missing = self.report.total_missing
         score = calculate_movie_score(total_owned, total_missing)
 
@@ -249,13 +266,13 @@ class MovieReportFormatter(ReportFormatter):
         # Stats
         console.print(f"[dim]Collections analyzed:[/dim] {self.report.unique_collections}")
         console.print(f"[dim]Movies scanned:[/dim] {self.report.total_movies_scanned}")
-        if self.report.collections_with_gaps:
-            console.print(
-                f"[dim]Collections with gaps:[/dim] {len(self.report.collections_with_gaps)}"
-            )
+        if incomplete:
+            console.print(f"[dim]Collections with gaps:[/dim] {len(incomplete)}")
             console.print(f"[dim]Missing movies:[/dim] {self.report.total_missing}")
         else:
             console.print("[green]All collections are complete![/green]")
+        if disorganized:
+            console.print(f"[dim]Disorganized collections:[/dim] {len(disorganized)}")
         console.print()
 
         # Performance stats

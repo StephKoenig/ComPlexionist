@@ -141,7 +141,6 @@ class TMDBClient(BaseAPIClient):
                 id=data["id"],
                 title=data["title"],
                 release_date=self._parse_date(data.get("release_date")),
-                overview=data.get("overview", ""),
                 poster_path=data.get("poster_path"),
                 belongs_to_collection=collection_info,
             )
@@ -201,7 +200,6 @@ class TMDBClient(BaseAPIClient):
                 id=part["id"],
                 title=part["title"],
                 release_date=self._parse_date(part.get("release_date")),
-                overview=part.get("overview", ""),
                 poster_path=part.get("poster_path"),
             )
             movies.append(movie)
@@ -210,7 +208,6 @@ class TMDBClient(BaseAPIClient):
             result = TMDBCollection(
                 id=data["id"],
                 name=data["name"],
-                overview=data.get("overview", ""),
                 poster_path=data.get("poster_path"),
                 backdrop_path=data.get("backdrop_path"),
                 parts=movies,
@@ -248,7 +245,6 @@ class TMDBClient(BaseAPIClient):
             collection = TMDBCollection(
                 id=result["id"],
                 name=result["name"],
-                overview=result.get("overview", ""),
                 poster_path=result.get("poster_path"),
                 backdrop_path=result.get("backdrop_path"),
                 parts=[],  # Search results don't include parts

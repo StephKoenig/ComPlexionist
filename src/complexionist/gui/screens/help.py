@@ -87,12 +87,13 @@ Movies are grouped by collection (e.g., "Harry Potter Collection"). Each collect
 
 ### Organizing Collections
 
-If your movies from a collection are scattered in different folders, an **Organize** button (orange) appears. Click it to:
-- See where each movie file is currently located
-- View the suggested collection folder path
-- Move all files into a single collection folder with one click
+Collections where you own 2+ movies show an organization status:
+- **Organize** (orange button) - Movies are scattered across different folders. Click to see file locations and move them into a single collection folder.
+- **Organised** (green tick) - Movies are already grouped in the same folder.
 
-The move operation includes safety checks to prevent overwriting files.
+Complete collections (all movies owned) also appear in results when their files need organizing, shown as "Complete X of X" in orange.
+
+The move operation includes safety checks to prevent overwriting files. Changes are reflected after the next scan.
 
 ### TV Results
 

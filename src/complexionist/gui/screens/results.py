@@ -85,9 +85,19 @@ class ResultsScreen(BaseScreen):
         # References to summary text controls for dynamic updates
         self.movie_gaps_count_text: ft.Text | None = None
         self.movie_score_text: ft.Text | None = None
+        self.movie_disorganized_text: ft.Text | None = None
         self.tv_gaps_count_text: ft.Text | None = None
         self.tv_missing_count_text: ft.Text | None = None
         self.tv_score_text: ft.Text | None = None
+        # Pre-created organize dialog and snackbar — added to overlay once
+        # during build() so we can show/hide with dialog.update() instead
+        # of expensive page.update() calls.
+        self._organize_dialog = ft.AlertDialog(
+            title=ft.Text(""),
+            content=ft.Container(width=550, height=350),
+            modal=True,
+        )
+        self._organize_snack = ft.SnackBar(content=ft.Text(""), duration=4000)
 
     def _create_stats_line(self) -> ft.Control | None:
         """Create compact stats line showing scan performance metrics."""
@@ -169,21 +179,24 @@ class ResultsScreen(BaseScreen):
                 if c.collection_id != collection_id
             ]
 
+            remaining = self.state.movie_report.collections_with_gaps
+            incomplete = [c for c in remaining if not c.is_complete]
+            disorganized = [c for c in remaining if c.is_complete]
+
             if self.movie_gaps_count_text:
-                gaps_count = len(self.state.movie_report.collections_with_gaps)
+                gaps_count = len(incomplete)
                 self.movie_gaps_count_text.value = str(gaps_count)
                 self.movie_gaps_count_text.color = PLEX_GOLD if gaps_count > 0 else None
 
             if self.movie_score_text:
-                total_owned = sum(
-                    c.owned_movies for c in self.state.movie_report.collections_with_gaps
-                )
-                total_missing = sum(
-                    c.missing_count for c in self.state.movie_report.collections_with_gaps
-                )
+                total_owned = sum(c.owned_movies for c in incomplete)
+                total_missing = sum(c.missing_count for c in incomplete)
                 score = calculate_movie_score(total_owned, total_missing)
                 self.movie_score_text.value = f"{score:.0f}%"
                 self.movie_score_text.color = self._get_score_color(score)
+
+            if hasattr(self, "movie_disorganized_text") and self.movie_disorganized_text:
+                self.movie_disorganized_text.value = str(len(disorganized))
 
             # 5. Update stats display
             self.page.update()
@@ -409,59 +422,63 @@ class ResultsScreen(BaseScreen):
                         )
                     )
 
-            # "Missing X" header
-            movies_column_items.append(
-                ft.Container(
-                    content=ft.Text(
-                        f"Missing {len(collection.missing_movies)}",
-                        size=12,
-                        weight=ft.FontWeight.BOLD,
-                        color=PLEX_GOLD,
-                    ),
-                    padding=ft.padding.only(top=8, bottom=4),
+            # Missing movies section (skip for complete collections)
+            if collection.missing_movies:
+                # "Missing X" header
+                movies_column_items.append(
+                    ft.Container(
+                        content=ft.Text(
+                            f"Missing {len(collection.missing_movies)}",
+                            size=12,
+                            weight=ft.FontWeight.BOLD,
+                            color=PLEX_GOLD,
+                        ),
+                        padding=ft.padding.only(top=8, bottom=4),
+                    )
                 )
-            )
 
-            # Missing movies (with bullet points)
-            find_enabled = get_config().options.find
-            for m in collection.missing_movies:
-                movie_display = f"{m.title} ({m.year or 'TBA'})"
-                if find_enabled:
-                    # Show movie with search link
-                    geek_url = f"https://nzbgeek.info/geekseek.php?moviesgeekseek=1&c=2000&browseincludewords={quote(movie_display)}"
-                    movies_column_items.append(
-                        ft.Row(
-                            [
-                                ft.TextButton(
-                                    content=ft.Text(f"• {movie_display}", size=14),
-                                    url=m.tmdb_url,
-                                    style=ft.ButtonStyle(
-                                        padding=ft.padding.symmetric(horizontal=0, vertical=2),
+                # Missing movies (with bullet points)
+                find_enabled = get_config().options.find
+                for m in collection.missing_movies:
+                    movie_display = f"{m.title} ({m.year or 'TBA'})"
+                    if find_enabled:
+                        # Show movie with search link
+                        geek_url = f"https://nzbgeek.info/geekseek.php?moviesgeekseek=1&c=2000&browseincludewords={quote(movie_display)}"
+                        movies_column_items.append(
+                            ft.Row(
+                                [
+                                    ft.TextButton(
+                                        content=ft.Text(f"• {movie_display}", size=14),
+                                        url=m.tmdb_url,
+                                        style=ft.ButtonStyle(
+                                            padding=ft.padding.symmetric(horizontal=0, vertical=2),
+                                        ),
                                     ),
-                                ),
-                                ft.TextButton(
-                                    content=ft.Text("🔍 Find", size=12, color=ft.Colors.BLUE_400),
-                                    url=geek_url,
-                                    tooltip="Search on NZBgeek",
-                                    style=ft.ButtonStyle(
-                                        padding=ft.padding.symmetric(horizontal=0, vertical=2),
+                                    ft.TextButton(
+                                        content=ft.Text(
+                                            "🔍 Find", size=12, color=ft.Colors.BLUE_400
+                                        ),
+                                        url=geek_url,
+                                        tooltip="Search on NZBgeek",
+                                        style=ft.ButtonStyle(
+                                            padding=ft.padding.symmetric(horizontal=0, vertical=2),
+                                        ),
                                     ),
+                                ],
+                                spacing=4,
+                                tight=True,
+                            )
+                        )
+                    else:
+                        movies_column_items.append(
+                            ft.TextButton(
+                                content=ft.Text(f"• {movie_display}", size=14),
+                                url=m.tmdb_url,
+                                style=ft.ButtonStyle(
+                                    padding=ft.padding.symmetric(horizontal=0, vertical=2),
                                 ),
-                            ],
-                            spacing=4,
-                            tight=True,
+                            )
                         )
-                    )
-                else:
-                    movies_column_items.append(
-                        ft.TextButton(
-                            content=ft.Text(f"• {movie_display}", size=14),
-                            url=m.tmdb_url,
-                            style=ft.ButtonStyle(
-                                padding=ft.padding.symmetric(horizontal=0, vertical=2),
-                            ),
-                        )
-                    )
 
             movies_list = ft.Column(movies_column_items, spacing=0)
 
@@ -497,12 +514,21 @@ class ResultsScreen(BaseScreen):
             )
 
             # Build subtitle with optional folder button
-            subtitle_parts: list[ft.Control] = [
-                ft.Text(
-                    f"Missing {len(collection.missing_movies)} of {collection.total_movies}",
-                    color=ft.Colors.GREY_400,
-                ),
-            ]
+            subtitle_parts: list[ft.Control] = []
+            if collection.is_complete:
+                subtitle_parts.append(
+                    ft.Text(
+                        f"Complete {collection.owned_movies} of {collection.total_movies}",
+                        color=ft.Colors.ORANGE_400,
+                    )
+                )
+            else:
+                subtitle_parts.append(
+                    ft.Text(
+                        f"Missing {len(collection.missing_movies)} of {collection.total_movies}",
+                        color=ft.Colors.GREY_400,
+                    )
+                )
 
             # Add folder button if we have a file path
             if collection.folder_path:
@@ -523,8 +549,11 @@ class ResultsScreen(BaseScreen):
                     )
                 )
 
-            # Add organize button if movies need organizing (not in collection folder)
-            if collection.needs_organizing and collection.collection_folder_target:
+            # Add organize indicator or button
+            needs_organize = (
+                collection.movies_in_different_folders and collection.collection_folder_target
+            )
+            if needs_organize:
 
                 def make_organize_handler(
                     coll: CollectionGap,
@@ -543,6 +572,9 @@ class ResultsScreen(BaseScreen):
                         style=ft.ButtonStyle(padding=ft.padding.all(0)),
                     )
                 )
+            elif len(collection.owned_movie_list) >= 2:
+                subtitle_parts.append(ft.Text(" · ", color=ft.Colors.GREY_400))
+                subtitle_parts.append(ft.Text("✔ Organised", size=12, color=ft.Colors.GREEN_400))
 
             subtitle_widget = ft.Row(subtitle_parts, spacing=0, tight=True)
 
@@ -576,9 +608,11 @@ class ResultsScreen(BaseScreen):
         if report is None:
             return ft.Text("No movie results available")
 
-        # Calculate collection completion score
-        total_owned = sum(c.owned_movies for c in report.collections_with_gaps)
-        total_missing = sum(c.missing_count for c in report.collections_with_gaps)
+        # Calculate collection completion score (only incomplete collections affect score)
+        incomplete_gaps = [c for c in report.collections_with_gaps if not c.is_complete]
+        disorganized = [c for c in report.collections_with_gaps if c.is_complete]
+        total_owned = sum(c.owned_movies for c in incomplete_gaps)
+        total_missing = sum(c.missing_count for c in incomplete_gaps)
         score = calculate_movie_score(total_owned, total_missing)
 
         # Create dynamic text controls and store references
@@ -593,10 +627,10 @@ class ResultsScreen(BaseScreen):
             weight=ft.FontWeight.BOLD,
         )
         self.movie_gaps_count_text = ft.Text(
-            str(len(report.collections_with_gaps)),
+            str(len(incomplete_gaps)),
             size=24,
             weight=ft.FontWeight.BOLD,
-            color=PLEX_GOLD if report.collections_with_gaps else None,
+            color=PLEX_GOLD if incomplete_gaps else None,
         )
         self.movie_score_text = ft.Text(
             f"{score:.0f}%",
@@ -605,14 +639,24 @@ class ResultsScreen(BaseScreen):
             color=self._get_score_color(score),
         )
 
-        summary = self._build_summary_card(
-            [
-                ("Movies Scanned", scanned_text),
-                ("In Collections", in_collections_text),
-                ("Collections with Gaps", self.movie_gaps_count_text),
-                ("Completion", self.movie_score_text),
-            ]
-        )
+        stat_columns = [
+            ("Movies Scanned", scanned_text),
+            ("In Collections", in_collections_text),
+            ("Collections with Gaps", self.movie_gaps_count_text),
+            ("Completion", self.movie_score_text),
+        ]
+
+        # Add disorganized stat if any complete-but-scattered collections
+        if disorganized:
+            self.movie_disorganized_text = ft.Text(
+                str(len(disorganized)),
+                size=24,
+                weight=ft.FontWeight.BOLD,
+                color=ft.Colors.ORANGE,
+            )
+            stat_columns.append(("Disorganized", self.movie_disorganized_text))
+
+        summary = self._build_summary_card(stat_columns)
 
         self.movie_list_view = ft.ListView(
             controls=self._build_movie_items(),
@@ -1058,81 +1102,23 @@ class ResultsScreen(BaseScreen):
 
         return len(issues) == 0, issues, moves
 
-    def _perform_organize(
-        self,
-        collection: CollectionGap,
-        moves: list[tuple[str, str]],
-        dialog: ft.AlertDialog,
-    ) -> None:
-        """Perform the file organization by moving movie files into collection folder.
-
-        Args:
-            collection: The collection being organized.
-            moves: List of (source_file, dest_file) tuples.
-            dialog: The dialog to update with progress/results.
-        """
-        import shutil
-        from pathlib import Path
-
-        target = collection.collection_folder_target
-        if not target:
-            return
-
-        target_path = Path(target)
-        errors: list[str] = []
-        moved_count = 0
-
-        try:
-            # Create collection folder if it doesn't exist
-            if not target_path.exists():
-                target_path.mkdir(parents=True)
-
-            # Move each movie file
-            for source, dest in moves:
-                try:
-                    shutil.move(source, dest)
-                    moved_count += 1
-                except (OSError, shutil.Error) as e:
-                    errors.append(f"Failed to move {Path(source).name}: {e}")
-
-        except OSError as e:
-            errors.append(f"Failed to create collection folder: {e}")
-
-        # Close dialog
-        dialog.open = False
-        self.page.update()
-
-        # Show result snackbar
-        if errors:
-            snack = ft.SnackBar(
-                content=ft.Text(
-                    f"Moved {moved_count} of {len(moves)} files. Errors: {len(errors)}"
-                ),
-                bgcolor=ft.Colors.ORANGE,
-                duration=5000,
-            )
-        else:
-            snack = ft.SnackBar(
-                content=ft.Text(
-                    f"Moved {moved_count} file(s) into {collection.expected_folder_name}/"
-                ),
-                bgcolor=ft.Colors.GREEN,
-                duration=4000,
-            )
-        self.page.overlay.append(snack)
-        snack.open = True
-        self.page.update()
-
     def _show_organize_dialog(self, collection: CollectionGap) -> None:
-        """Show dialog with movie locations and organization suggestions."""
+        """Show organize dialog immediately with file list, then check safety in background.
+
+        Uses dialog.update() instead of page.update() for all in-dialog changes
+        to avoid re-rendering the entire results page (hundreds of controls).
+
+        The dialog has three phases, all in the same window:
+        1. Opens instantly with movie file list + "Checking..." status at bottom
+        2. Safety checks complete → status updates, Move Files button enables
+        3. Move Files clicked → progress bar + per-file status in same area
+        """
+        import threading
         from pathlib import Path
 
         from complexionist.config import map_plex_path
 
-        # Run safety checks
-        can_organize, issues, moves = self._check_organize_safety(collection)
-
-        # Build list of current movie locations with move indicators
+        # Build movie file list immediately from in-memory data (no I/O)
         movie_rows: list[ft.Control] = []
         target = collection.collection_folder_target
         target_path = Path(target) if target else None
@@ -1144,16 +1130,12 @@ class ResultsScreen(BaseScreen):
                     path = Path(mapped_path)
                     filename = path.name
                     current_folder = path.parent.name
-
-                    # Check if already in collection folder
                     already_organized = target_path is not None and path.parent == target_path
 
                     if already_organized:
-                        # Already in collection folder - show checkmark
                         icon = ft.Icon(ft.Icons.CHECK, size=14, color=ft.Colors.GREEN_400)
                         location_color = ft.Colors.GREEN_400
                     else:
-                        # Will be moved - show arrow
                         icon = ft.Icon(ft.Icons.ARROW_FORWARD, size=14, color=ft.Colors.ORANGE_400)
                         location_color = ft.Colors.GREY_400
 
@@ -1179,7 +1161,13 @@ class ResultsScreen(BaseScreen):
                         )
                     )
 
-        # Build content sections
+        result_snack = self._organize_snack
+
+        # Status area at the bottom — reused for checking, issues, and move progress
+        progress_bar = ft.ProgressBar(value=None, width=500)  # Indeterminate while checking
+        status_text = ft.Text("Checking files...", size=11, color=ft.Colors.GREY_400)
+        status_area = ft.Column([progress_bar, status_text], spacing=4)
+
         content_items: list[ft.Control] = [
             ft.Text("Movie files:", weight=ft.FontWeight.BOLD),
             ft.Column(movie_rows, spacing=4),
@@ -1191,100 +1179,149 @@ class ResultsScreen(BaseScreen):
                 color=ft.Colors.BLUE_400,
                 selectable=True,
             ),
+            ft.Divider(),
+            ft.Text(
+                "Note: Changes will be reflected after the next scan.",
+                size=10,
+                color=ft.Colors.GREY_500,
+                italic=True,
+            ),
+            ft.Divider(),
+            status_area,
         ]
 
-        # Add move count info
-        if moves:
-            content_items.append(
-                ft.Text(
-                    f"Will move {len(moves)} file(s) into the collection folder.",
-                    size=11,
-                    color=ft.Colors.ORANGE_400,
-                    italic=True,
-                )
-            )
+        # Move Files button — starts disabled, enabled after checks pass.
+        # on_click is set now (not from the background thread) so the handler
+        # registers properly with Flutter.
+        def _on_move_click(e: ft.ControlEvent) -> None:
+            move_btn.disabled = True
+            move_btn.text = "Moving..."
+            move_btn.update()
+            _run_moves()
 
-        # Add issues/warnings if any
-        if issues:
-            content_items.append(ft.Divider())
-            content_items.append(
-                ft.Text("Issues:", weight=ft.FontWeight.BOLD, color=ft.Colors.RED_400)
-            )
-            for issue in issues:
-                content_items.append(
-                    ft.Row(
-                        [
-                            ft.Icon(ft.Icons.WARNING, size=14, color=ft.Colors.RED_400),
-                            ft.Container(
-                                content=ft.Text(
-                                    issue,
-                                    size=11,
-                                    color=ft.Colors.RED_300,
-                                    no_wrap=False,
-                                ),
-                                expand=True,
-                            ),
-                        ],
-                        spacing=4,
-                        vertical_alignment=ft.CrossAxisAlignment.START,
-                    )
-                )
+        move_btn = ft.ElevatedButton(
+            "Move Files",
+            icon=ft.Icons.DRIVE_FILE_MOVE,
+            disabled=True,
+            on_click=_on_move_click,
+            bgcolor=ft.Colors.ORANGE_700,
+            color=ft.Colors.WHITE,
+        )
 
         def close_dialog(e: ft.ControlEvent) -> None:
             dialog.open = False
-            self.page.update()
+            dialog.update()
 
-        def do_organize(e: ft.ControlEvent) -> None:
-            self._perform_organize(collection, moves, dialog)
-
-        # Build action buttons
-        actions: list[ft.Control] = [ft.TextButton("Close", on_click=close_dialog)]
-
-        # Add Move button (enabled or disabled based on safety checks)
-        if can_organize and moves:
-            actions.insert(
-                0,
-                ft.ElevatedButton(
-                    "Move Files",
-                    icon=ft.Icons.DRIVE_FILE_MOVE,
-                    on_click=do_organize,
-                    bgcolor=ft.Colors.ORANGE_700,
-                    color=ft.Colors.WHITE,
-                ),
-            )
-        else:
-            # Disabled button with tooltip explaining why
-            tooltip = "Cannot organize: " + (issues[0] if issues else "No moves needed")
-            actions.insert(
-                0,
-                ft.ElevatedButton(
-                    "Move Files",
-                    icon=ft.Icons.DRIVE_FILE_MOVE,
-                    disabled=True,
-                    tooltip=tooltip,
-                ),
-            )
-
-        dialog = ft.AlertDialog(
-            title=ft.Text(f"Organize: {collection.collection_name}"),
-            content=ft.Container(
-                content=ft.Column(
-                    content_items,
-                    spacing=8,
-                    tight=True,
-                    scroll=ft.ScrollMode.AUTO,
-                ),
-                width=550,
-                height=350,
-            ),
-            actions=actions,
+        # Reuse pre-created dialog — just update its content and show it
+        dialog = self._organize_dialog
+        dialog.title = ft.Text(f"Organize: {collection.collection_name}")
+        dialog.content = ft.Container(
+            content=ft.Column(content_items, spacing=8, tight=True, scroll=ft.ScrollMode.AUTO),
+            width=550,
+            height=350,
         )
-        self.page.overlay.append(dialog)
+        dialog.actions = [move_btn, ft.TextButton("Close", on_click=close_dialog)]
+
+        # dialog is already in overlay from build() — just open and update it
         dialog.open = True
-        self.page.update()
+        dialog.update()
+
+        # Mutable state shared between check and move phases
+        move_list: list[tuple[str, str]] = []
+
+        def _run_checks() -> None:
+            can_organize, issues, moves = self._check_organize_safety(collection)
+            move_list.extend(moves)
+
+            # Update status area with results
+            if can_organize and moves:
+                progress_bar.value = 0
+                progress_bar.visible = False
+                status_text.value = f"Ready to move {len(moves)} file(s)."
+                status_text.color = ft.Colors.ORANGE_400
+                move_btn.disabled = False
+            elif issues:
+                progress_bar.visible = False
+                status_text.value = issues[0]
+                status_text.color = ft.Colors.RED_400
+                move_btn.disabled = True
+                move_btn.tooltip = "Cannot organize: " + issues[0]
+            else:
+                progress_bar.visible = False
+                status_text.value = "All movies are already in the collection folder."
+                status_text.color = ft.Colors.GREEN_400
+                move_btn.disabled = True
+            # Only update the dialog subtree, not the entire page
+            dialog.update()
+
+        def _run_moves() -> None:
+            import shutil
+
+            # Disable button and show progress
+            move_btn.disabled = True
+            progress_bar.visible = True
+            progress_bar.value = 0
+            status_text.value = "Preparing..."
+            status_text.color = ft.Colors.GREY_400
+            dialog.update()
+
+            def _do_moves() -> None:
+                errors: list[str] = []
+                moved_count = 0
+                total = len(move_list)
+                t_path = Path(target)  # type: ignore[arg-type]
+
+                try:
+                    if not t_path.exists():
+                        status_text.value = f"Creating folder: {t_path.name}/"
+                        dialog.update()
+                        t_path.mkdir(parents=True)
+
+                    for i, (source, dest) in enumerate(move_list):
+                        source_name = Path(source).name
+                        status_text.value = f"Moving: {source_name}"
+                        progress_bar.value = i / total
+                        dialog.update()
+
+                        try:
+                            shutil.move(source, dest)
+                            moved_count += 1
+                        except (OSError, shutil.Error) as e:
+                            errors.append(f"Failed to move {source_name}: {e}")
+
+                except OSError as e:
+                    errors.append(f"Failed to create collection folder: {e}")
+
+                # Done — close dialog and show result, no page.update needed
+                dialog.open = False
+                dialog.update()
+
+                if errors:
+                    result_snack.content = ft.Text(
+                        f"Moved {moved_count} of {total} files. Errors: {len(errors)}"
+                    )
+                    result_snack.bgcolor = ft.Colors.ORANGE
+                    result_snack.duration = 5000
+                else:
+                    result_snack.content = ft.Text(
+                        f"Moved {moved_count} file(s) into {collection.expected_folder_name}/"
+                    )
+                    result_snack.bgcolor = ft.Colors.GREEN
+                    result_snack.duration = 4000
+                result_snack.open = True
+                result_snack.update()
+
+            threading.Thread(target=_do_moves, daemon=True).start()
+
+        # Run safety checks in background
+        threading.Thread(target=_run_checks, daemon=True).start()
 
     def build(self) -> ft.Control:
         """Build the results UI."""
+        # Add pre-created dialog and snackbar to overlay once
+        self.page.overlay.append(self._organize_dialog)
+        self.page.overlay.append(self._organize_snack)
+
         # Determine what to show based on scan type and available results
         has_movies = self.state.movie_report is not None
         has_tv = self.state.tv_report is not None

@@ -195,7 +195,6 @@ class TVDBClient(BaseAPIClient):
                 if series_data.get("status")
                 else None,
                 firstAired=self._parse_date(series_data.get("firstAired")),
-                overview=series_data.get("overview"),
                 year=series_data.get("year"),
                 image=series_data.get("image"),
             )
@@ -280,7 +279,6 @@ class TVDBClient(BaseAPIClient):
                         seasonNumber=ep_data.get("seasonNumber", 0),
                         number=ep_data.get("number", 0),
                         aired=self._parse_date(ep_data.get("aired")),
-                        overview=ep_data.get("overview"),
                         runtime=ep_data.get("runtime"),
                     )
                     all_episodes.append(episode)
@@ -337,7 +335,6 @@ class TVDBClient(BaseAPIClient):
             slug=series.slug,
             status=series.status,
             firstAired=series.first_aired,
-            overview=series.overview,
             year=series.year,
             image=series.image,
             episodes=episodes,
@@ -365,7 +362,6 @@ class TVDBClient(BaseAPIClient):
                     slug=item.get("slug"),
                     status=item.get("status"),
                     firstAired=self._parse_date(item.get("first_air_time")),
-                    overview=item.get("overview"),
                     year=int(item["year"]) if item.get("year") else None,
                     image=item.get("image_url") or item.get("image"),
                 )
