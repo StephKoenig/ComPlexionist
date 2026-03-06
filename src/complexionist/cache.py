@@ -35,11 +35,14 @@ from __future__ import annotations
 
 import hashlib
 import json
+import logging
 import threading
 from dataclasses import dataclass, field
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, cast
+
+logger = logging.getLogger(__name__)
 
 if TYPE_CHECKING:
     from complexionist.plex import PlexMovie, PlexShow
@@ -262,7 +265,8 @@ class Cache:
                 with open(self.cache_file, "w", encoding="utf-8") as f:
                     json.dump(self._data, f, indent=2, default=str)
             except OSError:
-                return  # Silently fail — cache is non-critical
+                logger.debug("Cache write failed for %s", self.cache_file)
+                return  # Cache is non-critical
         finally:
             # Clean up temp file if rename failed
             if tmp_file.exists():

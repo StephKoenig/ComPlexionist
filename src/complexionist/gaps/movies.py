@@ -135,7 +135,11 @@ class MovieGapFinder:
                 if collection_id:
                     collection_map[movie.tmdb_id] = collection_id
             except TMDBNotFoundError:
-                # Movie not found in TMDB, skip it
+                continue
+            except TMDBError as e:
+                from complexionist.gui.errors import log_error
+
+                log_error(e, f"TMDB API error for movie: {movie.title}")
                 continue
 
         return collection_map

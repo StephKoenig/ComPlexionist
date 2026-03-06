@@ -120,7 +120,15 @@ class PlexClient:
         return self
 
     def __exit__(self, *args: object) -> None:
-        pass  # PlexServer doesn't need explicit cleanup
+        self.close()
+
+    def close(self) -> None:
+        """Close the Plex server connection and release resources."""
+        if self._server is not None and hasattr(self._server, "_session"):
+            try:
+                self._server._session.close()  # noqa: SLF001  # plexapi internal
+            except Exception:
+                pass
 
     def test_connection(self) -> bool:
         """Test the connection to the Plex server.

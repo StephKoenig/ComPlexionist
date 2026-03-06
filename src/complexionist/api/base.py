@@ -122,7 +122,7 @@ class BaseAPIClient:
             error_data = response.json()
             message = error_data.get(self._error_message_key, "Unknown error")
         except Exception:
-            message = response.text or "Unknown error"
+            message = response.text or f"HTTP {response.status_code}"
 
         raise self._error_cls(f"{self._api_name} API error ({response.status_code}): {message}")
 

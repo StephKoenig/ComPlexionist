@@ -91,8 +91,8 @@ def _test_plex_connection(url: str, token: str) -> tuple[bool, str]:
         return False, "Cannot connect to Plex server (check URL)"
     except requests.exceptions.Timeout:
         return False, "Connection timed out"
-    except Exception as e:
-        return False, f"Error: {e}"
+    except Exception:
+        return False, "Connection failed (unexpected error)"
 
 
 def _test_tmdb_connection(api_key: str) -> tuple[bool, str]:
@@ -117,8 +117,8 @@ def _test_tmdb_connection(api_key: str) -> tuple[bool, str]:
             return False, f"TMDB returned status {response.status_code}"
     except requests.exceptions.Timeout:
         return False, "Connection timed out"
-    except Exception as e:
-        return False, f"Error: {e}"
+    except Exception:
+        return False, "Connection failed (unexpected error)"
 
 
 def _test_tvdb_connection(api_key: str) -> tuple[bool, str]:
@@ -143,8 +143,8 @@ def _test_tvdb_connection(api_key: str) -> tuple[bool, str]:
             return False, f"TVDB returned status {response.status_code}"
     except requests.exceptions.Timeout:
         return False, "Connection timed out"
-    except Exception as e:
-        return False, f"Error: {e}"
+    except Exception:
+        return False, "Connection failed (unexpected error)"
 
 
 def _prompt_and_test_plex() -> tuple[str, str]:

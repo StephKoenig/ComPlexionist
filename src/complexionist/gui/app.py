@@ -933,9 +933,7 @@ def _execute_scan_with_pubsub(state: AppState, page: ft.Page) -> None:
             client.close()
 
         # Close PlexServer's requests.Session (HTTP keep-alive pool).
-        # Unclosed sessions can interfere with Flet's event loop shutdown.
-        if plex._server is not None and hasattr(plex._server, "_session"):
-            plex._server._session.close()
+        plex.close()
 
         # Always flush cache, then prune expired entries during idle time
         cache.flush()

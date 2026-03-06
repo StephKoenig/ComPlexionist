@@ -47,6 +47,7 @@ def parse_multi_episode_filename(file_path: str | None) -> list[tuple[int, int]]
     if not file_path:
         return []
 
+    seen: set[tuple[int, int]] = set()
     episodes: list[tuple[int, int]] = []
 
     # Check each pattern
@@ -58,15 +59,12 @@ def parse_multi_episode_filename(file_path: str | None) -> list[tuple[int, int]]
                 start_ep = int(match[1])
                 end_ep = int(match[2])
 
-                # Handle case where end episode is less (e.g., S02E01-2 means E01-E02)
-                if end_ep < start_ep:
-                    # Assume it's a shortened form (S02E10-12 means S02E10-E12)
-                    pass  # Already handled below
-
                 # Generate range
                 for ep_num in range(start_ep, end_ep + 1):
-                    if (season, ep_num) not in episodes:
-                        episodes.append((season, ep_num))
+                    key = (season, ep_num)
+                    if key not in seen:
+                        seen.add(key)
+                        episodes.append(key)
 
     return episodes
 
