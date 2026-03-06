@@ -11,7 +11,6 @@ from complexionist.plex.models import (
     PlexEpisode,
     PlexLibrary,
     PlexMovie,
-    PlexSeason,
     PlexShow,
     PlexShowWithEpisodes,
 )
@@ -25,7 +24,6 @@ __all__ = [
     "PlexLibrary",
     "PlexMovie",
     "PlexShow",
-    "PlexSeason",
     "PlexEpisode",
     "PlexShowWithEpisodes",
 ]

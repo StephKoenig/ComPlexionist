@@ -72,15 +72,6 @@ class PlexEpisode(BaseModel):
         return f"S{self.season_number:02d}E{self.episode_number:02d}"
 
 
-class PlexSeason(BaseModel):
-    """A season from Plex."""
-
-    rating_key: str
-    title: str
-    season_number: int
-    episode_count: int = 0
-
-
 class PlexShowWithEpisodes(BaseModel):
     """A TV show with all its episodes."""
 
