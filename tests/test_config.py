@@ -4,7 +4,10 @@ import os
 import tempfile
 from pathlib import Path
 
+import pytest
+
 from complexionist.config import (
+    _HAS_YAML,
     AppConfig,
     ExclusionsConfig,
     OptionsConfig,
@@ -119,6 +122,7 @@ class TestConfigLoading:
         assert isinstance(cfg, AppConfig)
         assert cfg.options.min_collection_size == 2
 
+    @pytest.mark.skipif(not _HAS_YAML, reason="PyYAML not installed")
     def test_load_from_file(self) -> None:
         """Test loading configuration from YAML file."""
         config_content = """
@@ -150,6 +154,7 @@ exclusions:
         finally:
             temp_path.unlink()
 
+    @pytest.mark.skipif(not _HAS_YAML, reason="PyYAML not installed")
     def test_load_partial_config(self) -> None:
         """Test loading partial config uses defaults for missing values."""
         config_content = """
