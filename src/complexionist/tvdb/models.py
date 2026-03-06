@@ -25,15 +25,10 @@ class TVDBEpisode(BaseModel):
 
     @property
     def is_aired(self) -> bool:
-        """Check if the episode has aired.
+        """Check if the episode has aired."""
+        from complexionist.utils import is_date_past
 
-        Uses yesterday's date as the cutoff to account for timezone
-        differences — content aired "today" may not be available yet
-        in all regions.
-        """
-        if self.aired is None:
-            return False
-        return self.aired < date.today()
+        return is_date_past(self.aired)
 
     @property
     def is_special(self) -> bool:

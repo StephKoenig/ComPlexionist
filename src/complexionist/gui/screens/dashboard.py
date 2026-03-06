@@ -44,11 +44,9 @@ class DashboardScreen(BaseScreen):
         cache = Cache()
         count = cache.clear()
 
-        self.page.snack_bar = ft.SnackBar(
-            content=ft.Text(f"Cache cleared: {count} entries removed"),
-        )
-        self.page.snack_bar.open = True
-        self.page.update()
+        from complexionist.gui.errors import show_success
+
+        show_success(self.page, f"Cache cleared: {count} entries removed")
 
     def _create_status_badges(self) -> ft.Row:
         """Create connection status badges."""

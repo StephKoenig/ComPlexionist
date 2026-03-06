@@ -2,11 +2,23 @@
 
 import time
 from collections.abc import Callable
+from datetime import date
 from functools import wraps
 from typing import ParamSpec, TypeVar
 
 P = ParamSpec("P")
 T = TypeVar("T")
+
+
+def is_date_past(d: date | None) -> bool:
+    """Check if a date is before today.
+
+    Uses today as the cutoff to account for timezone differences —
+    content released/aired "today" may not be available in all regions.
+    """
+    if d is None:
+        return False
+    return d < date.today()
 
 
 def retry_with_backoff(

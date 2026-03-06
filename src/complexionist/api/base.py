@@ -73,9 +73,30 @@ class BaseAPIClient:
     _error_message_key: str = "message"
     _api_name: str = "API"
 
+    # Override in subclasses: config section name for API key lookup (e.g., "tmdb")
+    _config_section: str = ""
+
     def __init__(self, cache: Cache | None = None) -> None:
         self._cache = cache
         self._client: httpx.Client | None = None
+
+    def _resolve_api_key(self, api_key: str | None) -> str:
+        """Load API key from config if not provided, validate it.
+
+        Raises the subclass auth error if the key is missing.
+        """
+        if api_key is None and self._config_section:
+            from complexionist.config import get_config
+
+            cfg = get_config()
+            api_key = getattr(getattr(cfg, self._config_section), "api_key", None)
+
+        if not api_key:
+            raise self._auth_error_cls(
+                f"{self._api_name} API key not provided. "
+                "Configure api_key in complexionist.ini."
+            )
+        return api_key
 
     @property
     def client(self) -> httpx.Client:

@@ -62,6 +62,7 @@ class TMDBClient(BaseAPIClient):
     _rate_limit_cls = TMDBRateLimitError
     _error_message_key = "status_message"
     _api_name = "TMDB"
+    _config_section = "tmdb"
 
     def __init__(
         self,
@@ -77,19 +78,7 @@ class TMDBClient(BaseAPIClient):
             cache: Optional cache instance for storing API responses.
         """
         super().__init__(cache=cache)
-
-        # Load from config if not provided
-        if api_key is None:
-            from complexionist.config import get_config
-
-            cfg = get_config()
-            api_key = cfg.tmdb.api_key
-
-        self.api_key = api_key
-        if not self.api_key:
-            raise TMDBAuthError(
-                "TMDB API key not provided. Configure api_key in complexionist.ini."
-            )
+        self.api_key = self._resolve_api_key(api_key)
 
         self._client = httpx.Client(
             base_url=self.BASE_URL,
