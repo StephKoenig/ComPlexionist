@@ -5,7 +5,6 @@ Provides user-friendly error display using shared error utilities.
 
 from __future__ import annotations
 
-import sys
 from datetime import datetime
 from pathlib import Path
 
@@ -17,12 +16,9 @@ from complexionist.errors import get_friendly_message
 
 def _get_log_file_path() -> Path:
     """Get the path to the error log file (in exe folder or cwd)."""
-    if getattr(sys, "frozen", False):
-        # Running as bundled exe - log in same folder as exe
-        return Path(sys.executable).parent / "complexionist_errors.log"
-    else:
-        # Running in development - log in current working directory
-        return Path.cwd() / "complexionist_errors.log"
+    from complexionist.config import get_exe_directory
+
+    return get_exe_directory() / "complexionist_errors.log"
 
 
 def log_error(error: Exception | str, context: str = "") -> None:

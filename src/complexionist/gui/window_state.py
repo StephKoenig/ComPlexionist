@@ -61,8 +61,10 @@ def load_window_state() -> WindowState:
             y=section.getint("y") if "y" in section else None,
             maximized=section.getboolean("maximized", False),
         )
-    except Exception:
-        # If anything goes wrong, return defaults
+    except Exception as e:
+        from complexionist.gui.errors import log_error
+
+        log_error(e, "Loading window state")
         return WindowState()
 
 
@@ -104,7 +106,10 @@ def save_window_state(state: WindowState) -> bool:
             parser.write(f)
 
         return True
-    except Exception:
+    except Exception as e:
+        from complexionist.gui.errors import log_error
+
+        log_error(e, "Saving window state")
         return False
 
 

@@ -101,6 +101,11 @@ _config: AppConfig | None = None
 _config_path: Path | None = None  # Track where config was loaded from
 
 
+def is_frozen() -> bool:
+    """Check if running as a PyInstaller bundle."""
+    return bool(getattr(sys, "frozen", False))
+
+
 def get_exe_directory() -> Path:
     """Get the directory containing the executable (or script).
 
@@ -109,13 +114,20 @@ def get_exe_directory() -> Path:
     Returns:
         Path to the directory containing the exe or main script.
     """
-    if getattr(sys, "frozen", False):
-        # Running as PyInstaller bundle - use executable location
+    if is_frozen():
         return Path(sys.executable).parent
-    else:
-        # Running as Python script - use current working directory
-        # (not __file__ since that's inside the package)
-        return Path.cwd()
+    return Path.cwd()
+
+
+def get_assets_directory() -> Path:
+    """Get the assets directory path.
+
+    In PyInstaller bundles, assets are in the temp extraction dir.
+    In development, they're relative to the project root.
+    """
+    if is_frozen():
+        return Path(sys._MEIPASS) / "assets"  # noqa: SLF001  # PyInstaller attr
+    return Path(__file__).parent.parent.parent / "assets"
 
 
 def get_config_paths() -> list[Path]:

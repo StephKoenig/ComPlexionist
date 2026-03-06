@@ -53,7 +53,10 @@ def load_library_selection() -> LibrarySelection:
             tv_library=section.get("tv_library", ""),
             active_server=active_server,
         )
-    except Exception:
+    except Exception as e:
+        from complexionist.gui.errors import log_error
+
+        log_error(e, "Loading library selection")
         return LibrarySelection()
 
 
@@ -85,5 +88,8 @@ def save_library_selection(selection: LibrarySelection) -> bool:
             parser.write(f)
 
         return True
-    except Exception:
+    except Exception as e:
+        from complexionist.gui.errors import log_error
+
+        log_error(e, "Saving library selection")
         return False

@@ -731,17 +731,9 @@ def run_app(web_mode: bool = False) -> None:
             page.update()
 
     # Run the app
-    # Get assets directory path (relative to package or cwd for dev)
-    import sys
-    from pathlib import Path
+    from complexionist.config import get_assets_directory
 
-    # Try to find assets directory - check multiple locations
-    if getattr(sys, "frozen", False):
-        # Running as PyInstaller bundle - assets are in the temp extraction dir
-        assets_dir = str(Path(sys._MEIPASS) / "assets")  # noqa: SLF001  # PyInstaller attr
-    else:
-        # Running from source - assets are relative to project root
-        assets_dir = str(Path(__file__).parent.parent.parent.parent / "assets")
+    assets_dir = str(get_assets_directory())
 
     if web_mode:
         ft.app(target=main, view=ft.AppView.WEB_BROWSER, assets_dir=assets_dir)
