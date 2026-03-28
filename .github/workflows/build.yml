@@ -40,9 +40,13 @@ jobs:
           echo "version=$VERSION" >> $GITHUB_OUTPUT
           echo "Building version: $VERSION"
 
+      - name: Cache Flet desktop client
+        run: |
+          python -c "from flet_desktop import ensure_client_cached; ensure_client_cached()"
+
       - name: Build executable
         run: |
-          # Build from committed spec file (includes all excludes, flet_desktop bundling, icon)
+          # Build from committed spec file (includes all excludes, flet desktop client bundling, icon)
           pyinstaller complexionist.spec --noconfirm
 
       - name: Test executable
