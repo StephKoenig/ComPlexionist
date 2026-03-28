@@ -1,5 +1,6 @@
 # -*- mode: python ; coding: utf-8 -*-
 import importlib, os
+from pathlib import Path
 
 def _pkg_dir(name):
     """Find a package's directory regardless of venv or system install."""
@@ -11,7 +12,30 @@ def _pkg_dir(name):
         )
 
 _flet_dir = _pkg_dir('flet')
-_flet_desktop_dir = _pkg_dir('flet_desktop')
+
+# Flet 0.83+ downloads the desktop client on first run and caches it at
+# ~/.flet/client/flet-desktop-{flavor}-{version}/. For PyInstaller, we bundle
+# this as flet-windows.zip in flet_desktop/app/ so ensure_client_cached() finds
+# the bundled archive and extracts it to the user's cache (no download needed).
+_flet_client_cache = Path.home() / '.flet' / 'client'
+_flet_client_dirs = sorted(_flet_client_cache.glob('flet-desktop-full-*'))
+if not _flet_client_dirs:
+    _flet_client_dirs = sorted(_flet_client_cache.glob('flet-desktop-*'))
+if not _flet_client_dirs:
+    raise FileNotFoundError(
+        "Flet desktop client not cached. Run the app once with 'uv run complexionist' "
+        "to download the client, then retry the build."
+    )
+_flet_client_dir = _flet_client_dirs[-1]
+
+# Create flet-windows.zip from cached client for bundling
+import zipfile, tempfile
+_flet_zip = os.path.join(tempfile.gettempdir(), 'flet-windows.zip')
+with zipfile.ZipFile(_flet_zip, 'w', zipfile.ZIP_DEFLATED) as zf:
+    for root, dirs, files in os.walk(_flet_client_dir):
+        for f in files:
+            full = os.path.join(root, f)
+            zf.write(full, os.path.relpath(full, _flet_client_dir))
 
 a = Analysis(
     ['src\\complexionist\\cli.py'],
@@ -19,7 +43,7 @@ a = Analysis(
     binaries=[],
     datas=[
         (os.path.join(_flet_dir, 'controls'), 'flet/controls'),
-        (os.path.join(_flet_desktop_dir, 'app'), 'flet_desktop/app'),
+        (_flet_zip, 'flet_desktop/app'),
         ('assets', 'assets'),
     ],
     hiddenimports=[],

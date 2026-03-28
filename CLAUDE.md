@@ -273,11 +273,13 @@ gh run view --log-failed               # diagnose failures
 Build a Windows executable locally for testing before creating a release.
 
 ### Prerequisites
-Flet CLI is included as a dependency. PyInstaller is included in dev dependencies.
+PyInstaller is included in dev dependencies.
+
+**Flet desktop client:** Flet 0.83+ downloads the desktop client binary on first run and caches it at `~/.flet/client/`. The `complexionist.spec` creates a zip from this cache at build time and bundles it so the exe is self-contained. **You must run the app once** (`uv run complexionist`) before building so the client is cached. You also need `flet-desktop` installed: `uv pip install flet-desktop==<version>`.
 
 ### Build command
 
-The committed `complexionist.spec` handles dynamic package paths, flet_desktop bundling, all excludes, and icon embedding.
+The committed `complexionist.spec` handles dynamic package paths, flet desktop client bundling, all excludes, and icon embedding.
 
 ```bash
 # IMPORTANT: pyinstaller clears dist/, which deletes your test config/cache!
