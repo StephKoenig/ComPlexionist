@@ -697,6 +697,92 @@ class TestMovieGapFinder:
         assert gap.owned_movies == 2
         assert gap.missing_count == 1
 
+    def test_get_collection_ids_parallel_produces_same_results(self) -> None:
+        """Parallel lookup should produce identical results to sequential."""
+        movies = [
+            PlexMovie(rating_key=str(i), title=f"Movie {i}", tmdb_id=100 + i)
+            for i in range(10)
+        ]
+        plex = self._create_mock_plex_client(movies)
+
+        # Movies 100-104 in collection 1, 105-109 in collection 2
+        movie_collections = {100 + i: 1 if i < 5 else 2 for i in range(10)}
+        past = date(2020, 1, 1)
+        collections = {
+            1: TMDBCollection(
+                id=1,
+                name="Collection A",
+                parts=[
+                    TMDBMovie(id=100 + i, title=f"Movie {i}", release_date=past)
+                    for i in range(5)  # 5 owned
+                ]
+                + [
+                    TMDBMovie(id=200 + i, title=f"Missing A{i}", release_date=past)
+                    for i in range(2)  # 2 missing (IDs 200, 201 not owned)
+                ],
+            ),
+            2: TMDBCollection(
+                id=2,
+                name="Collection B",
+                parts=[
+                    TMDBMovie(id=105 + i, title=f"Movie {5 + i}", release_date=past)
+                    for i in range(5)  # 5 owned
+                ]
+                + [
+                    TMDBMovie(id=210 + i, title=f"Missing B{i}", release_date=past)
+                    for i in range(3)  # 3 missing (IDs 210-212 not owned)
+                ],
+            ),
+        }
+        tmdb = self._create_mock_tmdb_client(movie_collections, collections)
+
+        finder = MovieGapFinder(plex, tmdb)
+        report = finder.find_gaps()
+
+        assert report.movies_in_collections == 10
+        assert report.unique_collections == 2
+        assert len(report.collections_with_gaps) == 2
+
+    def test_get_collection_ids_handles_errors_in_parallel(self) -> None:
+        """Errors for individual movies should not crash the parallel lookup."""
+        movies = [
+            PlexMovie(rating_key="1", title="Good Movie", tmdb_id=100),
+            PlexMovie(rating_key="2", title="Bad Movie", tmdb_id=200),
+            PlexMovie(rating_key="3", title="Also Good", tmdb_id=300),
+        ]
+        plex = self._create_mock_plex_client(movies)
+
+        from complexionist.tmdb import TMDBNotFoundError
+
+        def get_movie(movie_id: int) -> TMDBMovieDetails:
+            if movie_id == 200:
+                raise TMDBNotFoundError("Not found")
+            collection_id = 1
+            return TMDBMovieDetails(
+                id=movie_id,
+                title=f"Movie {movie_id}",
+                belongs_to_collection={"id": collection_id, "name": "Col 1"},
+            )
+
+        tmdb = MagicMock()
+        tmdb.get_movie.side_effect = get_movie
+        past = date(2020, 1, 1)
+        tmdb.get_collection.return_value = TMDBCollection(
+            id=1,
+            name="Collection 1",
+            parts=[
+                TMDBMovie(id=100, title="Good Movie", release_date=past),
+                TMDBMovie(id=300, title="Also Good", release_date=past),
+                TMDBMovie(id=400, title="Missing Movie", release_date=past),
+            ],
+        )
+
+        finder = MovieGapFinder(plex, tmdb)
+        report = finder.find_gaps()
+
+        assert report.movies_in_collections == 2
+        assert report.unique_collections == 1
+
 
 # ============================================================================
 # Episode Gap Detection Tests

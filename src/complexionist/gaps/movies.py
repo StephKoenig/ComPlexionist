@@ -1,6 +1,8 @@
 """Movie gap detection logic."""
 
+import time
 from collections.abc import Callable
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import date
 
 from complexionist.gaps.models import CollectionGap, MissingMovie, MovieGapReport, OwnedMovie
@@ -115,32 +117,54 @@ class MovieGapFinder:
     def _get_collection_ids(self, movies: list[PlexMovie]) -> dict[int, int]:
         """Get collection IDs for movies that belong to collections.
 
+        Uses 2 parallel workers to speed up TMDB lookups, with slight
+        stagger between submissions to avoid rate-limit bursts.
+
         Args:
             movies: List of Plex movies with TMDB IDs.
 
         Returns:
             Dict mapping movie TMDB ID to collection ID.
         """
+        movies_with_ids = [m for m in movies if m.tmdb_id is not None]
+        total = len(movies_with_ids)
+        if total == 0:
+            return {}
+
         collection_map: dict[int, int] = {}
-        total = len(movies)
+        completed = 0
 
-        for i, movie in enumerate(movies):
-            if movie.tmdb_id is None:
-                continue
-
-            self._progress(f"Checking: {movie.title}", i + 1, total)
-
+        def lookup_movie(movie: PlexMovie) -> tuple[int | None, int | None, str]:
+            """Look up a single movie's collection ID. Returns (tmdb_id, collection_id, title)."""
             try:
-                collection_id = self._get_movie_collection_id(movie.tmdb_id)
-                if collection_id:
-                    collection_map[movie.tmdb_id] = collection_id
+                collection_id = self._get_movie_collection_id(movie.tmdb_id)  # type: ignore[arg-type]
+                return (movie.tmdb_id, collection_id, movie.title)
             except TMDBNotFoundError:
-                continue
+                return (movie.tmdb_id, None, movie.title)
             except TMDBError as e:
                 from complexionist.gui.errors import log_error
 
                 log_error(e, f"TMDB API error for movie: {movie.title}")
-                continue
+                return (movie.tmdb_id, None, movie.title)
+
+        with ThreadPoolExecutor(max_workers=2) as executor:
+            # Submit all tasks with slight stagger to avoid burst requests
+            futures = {}
+            for i, movie in enumerate(movies_with_ids):
+                future = executor.submit(lookup_movie, movie)
+                futures[future] = i
+                # Stagger submissions: 0.25s between each to spread load
+                # across 2 workers, giving ~0.5s offset between workers
+                if i < total - 1:
+                    time.sleep(0.25)
+
+            # Collect results as they complete
+            for future in as_completed(futures):
+                completed += 1
+                tmdb_id, collection_id, title = future.result()
+                self._progress(f"Checking: {title}", completed, total)
+                if tmdb_id is not None and collection_id is not None:
+                    collection_map[tmdb_id] = collection_id
 
         return collection_map
 
