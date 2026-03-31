@@ -6,6 +6,7 @@ to provide useful summaries after scans.
 
 from __future__ import annotations
 
+import threading
 import time
 from dataclasses import dataclass, field
 from datetime import timedelta
@@ -76,6 +77,9 @@ class ScanStatistics:
 
     # Global instance for easy access
     _instance: ScanStatistics | None = field(default=None, repr=False)
+
+    # Lock for thread-safe counter mutations
+    _lock: threading.Lock = field(default_factory=threading.Lock, repr=False)
 
     def start(self) -> None:
         """Start tracking the scan."""
@@ -189,16 +193,17 @@ class ScanStatistics:
             call_type: Type of call (plex, tmdb_movie, tmdb_collection,
                        tvdb_series, tvdb_episode).
         """
-        if call_type == "plex":
-            self.plex_requests += 1
-        elif call_type == "tmdb_movie":
-            self.tmdb_movie_requests += 1
-        elif call_type == "tmdb_collection":
-            self.tmdb_collection_requests += 1
-        elif call_type == "tvdb_series":
-            self.tvdb_series_requests += 1
-        elif call_type == "tvdb_episode":
-            self.tvdb_episode_requests += 1
+        with self._lock:
+            if call_type == "plex":
+                self.plex_requests += 1
+            elif call_type == "tmdb_movie":
+                self.tmdb_movie_requests += 1
+            elif call_type == "tmdb_collection":
+                self.tmdb_collection_requests += 1
+            elif call_type == "tvdb_series":
+                self.tvdb_series_requests += 1
+            elif call_type == "tvdb_episode":
+                self.tvdb_episode_requests += 1
 
     def record_cache_hit(self, api: str = "") -> None:
         """Record a cache hit.
@@ -206,11 +211,12 @@ class ScanStatistics:
         Args:
             api: Optional API identifier ("tmdb" or "tvdb") for separate tracking.
         """
-        self.cache_hits += 1
-        if api == "tmdb":
-            self.cache_hits_tmdb += 1
-        elif api == "tvdb":
-            self.cache_hits_tvdb += 1
+        with self._lock:
+            self.cache_hits += 1
+            if api == "tmdb":
+                self.cache_hits_tmdb += 1
+            elif api == "tvdb":
+                self.cache_hits_tvdb += 1
 
     def record_cache_miss(self, api: str = "") -> None:
         """Record a cache miss.
@@ -218,11 +224,12 @@ class ScanStatistics:
         Args:
             api: Optional API identifier ("tmdb" or "tvdb") for separate tracking.
         """
-        self.cache_misses += 1
-        if api == "tmdb":
-            self.cache_misses_tmdb += 1
-        elif api == "tvdb":
-            self.cache_misses_tvdb += 1
+        with self._lock:
+            self.cache_misses += 1
+            if api == "tmdb":
+                self.cache_misses_tmdb += 1
+            elif api == "tvdb":
+                self.cache_misses_tvdb += 1
 
     def _format_duration(self, td: timedelta) -> str:
         """Format a timedelta for display."""

@@ -1,5 +1,6 @@
 """Tests for the statistics module."""
 
+import threading
 import time
 from datetime import timedelta
 from io import StringIO
@@ -159,3 +160,65 @@ class TestScanStatistics:
         stats = ScanStatistics()
         result = stats._format_duration(timedelta(minutes=2, seconds=30))
         assert result == "2m 30.0s"
+
+
+class TestScanStatisticsThreadSafety:
+    """Verify counters don't lose increments under concurrent access."""
+
+    def test_concurrent_api_call_recording(self) -> None:
+        stats = ScanStatistics()
+        stats.start()
+        iterations = 500
+
+        def record_calls() -> None:
+            for _ in range(iterations):
+                stats.record_api_call("tmdb_movie")
+
+        t1 = threading.Thread(target=record_calls)
+        t2 = threading.Thread(target=record_calls)
+        t1.start()
+        t2.start()
+        t1.join()
+        t2.join()
+
+        assert stats.tmdb_movie_requests == iterations * 2
+
+    def test_concurrent_cache_hit_recording(self) -> None:
+        stats = ScanStatistics()
+        stats.start()
+        iterations = 500
+
+        def record_hits() -> None:
+            for _ in range(iterations):
+                stats.record_cache_hit("tmdb")
+
+        t1 = threading.Thread(target=record_hits)
+        t2 = threading.Thread(target=record_hits)
+        t1.start()
+        t2.start()
+        t1.join()
+        t2.join()
+
+        assert stats.cache_hits == iterations * 2
+        assert stats.cache_hits_tmdb == iterations * 2
+
+    def test_concurrent_cache_miss_recording(self) -> None:
+        stats = ScanStatistics()
+        stats.start()
+        iterations = 500
+
+        def record_misses() -> None:
+            for _ in range(iterations):
+                stats.record_cache_miss("tmdb")
+                stats.record_api_call("tmdb_movie")
+
+        t1 = threading.Thread(target=record_misses)
+        t2 = threading.Thread(target=record_misses)
+        t1.start()
+        t2.start()
+        t1.join()
+        t2.join()
+
+        assert stats.cache_misses == iterations * 2
+        assert stats.cache_misses_tmdb == iterations * 2
+        assert stats.tmdb_movie_requests == iterations * 2
