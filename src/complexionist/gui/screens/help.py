@@ -81,7 +81,7 @@ The score shows what percentage of available content you own:
 ### Movie Results
 
 Movies are grouped by collection (e.g., "Harry Potter Collection"). Each collection shows:
-- Movies you **own** (with checkmark)
+- Movies you **own** (with checkmark) and their resolution/codec badges (e.g., 1080p, HEVC)
 - Movies you're **missing** (with X)
 - Collection completion percentage
 
@@ -97,7 +97,7 @@ The move operation includes safety checks to prevent overwriting files. Changes 
 
 ### TV Results
 
-TV shows are grouped by series, then by season. Each show displays its status (Continuing, Ended, etc.) so you know whether to expect new episodes. Each entry shows:
+TV shows are grouped by series, then by season. Each show displays its resolution/codec badges and status (Continuing, Ended, etc.) so you know whether to expect new episodes. Each entry shows:
 - Episode code (S01E05)
 - Episode title
 - Air date
